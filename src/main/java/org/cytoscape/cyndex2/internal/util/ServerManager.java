@@ -116,9 +116,13 @@ public class ServerManager {
 				? url
 				: "https://" + url;
 	}
-	
+
 	public static String getBaseRoute(String url) {
-		return addHttpProtocol(url) + "/v2";
+		String normalized = addHttpProtocol(url);
+		if (normalized.endsWith("/")) {
+			normalized = normalized.substring(0, normalized.length() - 1);
+		}
+		return normalized.endsWith("/v2") ? normalized : normalized + "/v2";
 	}
 
 	/**
