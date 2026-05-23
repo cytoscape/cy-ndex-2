@@ -295,7 +295,7 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 		// Check UUID
 		UUID uuid;
 		try {
-			final NdexRestClient nc = new NdexRestClient(params.username, params.password, params.serverUrl,
+			final NdexRestClient nc = new NdexRestClient(params.username, params.password, ServerManager.getBaseRoute(params.serverUrl),
 					UserAgentUtil.getUserAgent());
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 			uuid = UpdateUtil.updateIsPossibleHelper(suid, network instanceof CyRootNetwork, nc, mal);
@@ -378,7 +378,7 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 		try {
 
 			final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
-					selectedServer.getUrl(), UserAgentUtil.getUserAgent());
+					ServerManager.getBaseRoute(selectedServer.getUrl()), UserAgentUtil.getUserAgent());
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 
 			

@@ -10,10 +10,12 @@ import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorType;
 import org.cytoscape.cyndex2.internal.rest.parameter.NDExImportParameters;
+import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.work.AbstractTaskFactory;
 import org.cytoscape.work.TaskIterator;
 import org.ndexbio.model.exceptions.NdexException;
+import org.ndexbio.model.object.UserV1;
 import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 
@@ -35,7 +37,7 @@ public class NDExImportTaskFactory extends AbstractTaskFactory {
 		UUID uuid = validateImportParameters(params);
 
 		if (params.username != null && params.password != null) {
-			final String serverUrl = params.serverUrl == null ? "http://ndexbio.org/v2/" : params.serverUrl;
+			final String serverUrl = params.serverUrl == null ? "http://ndexbio.org/v2/" : ServerManager.getBaseRoute(params.serverUrl);
 
 			final NdexRestClient client = new NdexRestClient(params.username, params.password, serverUrl,
 					UserAgentUtil.getUserAgent());

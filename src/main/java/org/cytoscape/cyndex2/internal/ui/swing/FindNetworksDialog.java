@@ -677,6 +677,11 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 			ModalProgressHelper.runWorker(this, "Loading Profile", () -> {
 				jButton1.setText(SignInButtonHelper.getSignInText());
 				Server selectedServer = ServerManager.INSTANCE.getServer();
+
+				if (selectedServer == null || selectedServer == Server.DEFAULT_SERVER) {
+					return 1;  // no server to query, bail
+				}
+
 				if (administeredByMe.isSelected()) {
 					administeredByMe.setSelected(
 							selectedServer.getUsername() != null && !selectedServer.getUsername().isEmpty());
@@ -689,4 +694,5 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 			});
 		}
 	}
+
 }

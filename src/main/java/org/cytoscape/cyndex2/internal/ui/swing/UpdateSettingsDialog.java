@@ -15,10 +15,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.cytoscape.cyndex2.internal.CyServiceModule;
-import org.cytoscape.cyndex2.internal.util.NDExNetworkManager;
-import org.cytoscape.cyndex2.internal.util.Server;
-import org.cytoscape.cyndex2.internal.util.UpdateUtil;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
+import org.cytoscape.cyndex2.internal.util.*;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.util.swing.IconManager;
 import org.ndexbio.model.object.network.NetworkSummary;
@@ -213,7 +210,7 @@ public class UpdateSettingsDialog extends javax.swing.JDialog {
 			final UUID potentialUUID = UUID.fromString(uuidString);
 
 			final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
-					selectedServer.getUrl(), UserAgentUtil.getUserAgent());
+					ServerManager.getBaseRoute(selectedServer.getUrl()), UserAgentUtil.getUserAgent());
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 
 			verifiedUUID = UpdateUtil.updateIsPossible(network, potentialUUID, nc, mal, false);

@@ -655,7 +655,7 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 			try {
 				System.out.println("Checking if update is possible for suid: " + saveParameters.suid);
 				final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
-						selectedServer.getUrl(), UserAgentUtil.getUserAgent());
+						ServerManager.getBaseRoute(selectedServer.getUrl()), UserAgentUtil.getUserAgent());
 				final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 				updatePossible = UpdateUtil.updateIsPossibleHelper(saveParameters.suid,
 						saveParameters.saveType.equals("collection"), nc, mal, !isUUIDChanged) != null;
