@@ -45,7 +45,7 @@ public class Server
     
   	private static final Server getDefaultServer() {
   		final Server server = new Server();
-  		server.url = "http://public.ndexbio.org/v2";
+  		server.url = "https://public.ndexbio.org/v2";
   		return server;
   	}
   			
@@ -125,7 +125,7 @@ public class Server
     
     public NdexRestClientModelAccessLayer getModelAccessLayer() throws IOException, NdexException
     {
-    	final String apiUrl = url;//url.concat("/v2");
+    	final String apiUrl = ServerManager.getBaseRoute(url);//url.concat("/v2");
     	final NdexRestClient client = new NdexRestClient(username,password,apiUrl, UserAgentUtil.getUserAgent());
 			return new NdexRestClientModelAccessLayer(client);
     }
