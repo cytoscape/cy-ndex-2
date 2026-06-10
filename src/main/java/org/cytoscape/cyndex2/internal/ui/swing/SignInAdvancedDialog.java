@@ -170,6 +170,27 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 		setVisible(false);
 	}// GEN-LAST:event_cancelActionPerformed
 
+	@FunctionalInterface
+	public interface CandidateVerifier {
+		boolean test(String candidate) throws Exception;
+	}
+
+	public static String resolveServerUrl(String trimmedURL, CandidateVerifier verifier) {
+		boolean hasProtocol = trimmedURL.toLowerCase().startsWith("http://")
+				|| trimmedURL.toLowerCase().startsWith("https://");
+		String[] candidates = hasProtocol
+				? new String[]{ trimmedURL }
+				: new String[]{ trimmedURL, "https://" + trimmedURL };
+		for (String candidate : candidates) {
+			try {
+				if (verifier.test(candidate)) return candidate;
+			} catch (Exception e) {
+				// try next candidate
+			}
+		}
+		return null;
+	}
+
 	private void applySettings() {
 		if (!changed || serverURLTextField.getText().trim().length() == 0) {
 			System.out.println("Nothing changed. Leaving old server URL");
@@ -177,33 +198,33 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 			return;
 		}
 
-		System.out.println("Server URL changed. Verifying.");
-		
-		String verifiedURL;
-		try {
-			final String trimmedURL = serverURLTextField.getText().trim();
-			final String baseRoute = ServerManager.getBaseRoute(trimmedURL);
-			
-			final NdexRestClient nc = new NdexRestClient(
-					baseRoute);
-			nc.setAdditionalUserAgent(UserAgentUtil.getUserAgent());
-			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
-			
-			final NdexStatus status = mal.getServerStatus();
-			verifiedURL = status.getProperties().size() > 0 ? trimmedURL : null;
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this,
-					"<html><body>Error validating NDEx Server URL: <br>" + e.getMessage() + "</html></body>", "Invalid URL",
-					JOptionPane.WARNING_MESSAGE);
-			verifiedURL = null;
-		}
+		final String trimmedURL = serverURLTextField.getText().trim();
+		System.out.println("Server URL changed. Verifying: " + trimmedURL);
+
+		final Exception[] lastError = { null };
+		String verifiedURL = resolveServerUrl(trimmedURL, candidate -> {
+			try {
+				final String baseRoute = ServerManager.getBaseRoute(candidate);
+				final NdexRestClient nc = new NdexRestClient(baseRoute);
+				nc.setAdditionalUserAgent(UserAgentUtil.getUserAgent());
+				final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
+				final NdexStatus status = mal.getServerStatus();
+				return status.getProperties().size() > 0;
+			} catch (Exception e) {
+				lastError[0] = e;
+				throw e;
+			}
+		});
 
 		if (verifiedURL != null) {
-			
 			serverURL = verifiedURL;
 			setVisible(false);
+		} else {
+			if (lastError[0] != null) lastError[0].printStackTrace();
+			JOptionPane.showMessageDialog(this,
+					"<html><body>Error validating NDEx Server URL: <br>"
+					+ (lastError[0] != null ? lastError[0].getMessage() : "Server did not respond correctly")
+					+ "</html></body>", "Invalid URL", JOptionPane.WARNING_MESSAGE);
 		}
 	}
 

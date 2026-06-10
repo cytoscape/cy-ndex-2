@@ -26,9 +26,22 @@ public class ModalProgressHelper {
 				return intSupplier.getAsInt();
 			}
 			
-			@Override 
+			@Override
 			protected void done() {
-				dlgProgress.dispose();
+				try {
+					get();
+					System.out.println("[MPH] worker '" + title + "' done normally");
+				} catch (java.util.concurrent.ExecutionException ex) {
+					Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+					System.err.println("[MPH] worker '" + title + "' done with exception: "
+							+ cause.getClass().getName() + ": " + cause.getMessage());
+					cause.printStackTrace();
+				} catch (InterruptedException ex) {
+					System.err.println("[MPH] worker '" + title + "' interrupted: " + ex.getMessage());
+					Thread.currentThread().interrupt();
+				} finally {
+					dlgProgress.dispose();
+				}
 			}
 		};
 		worker.execute();

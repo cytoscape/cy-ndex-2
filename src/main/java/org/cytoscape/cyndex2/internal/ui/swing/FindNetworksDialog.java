@@ -108,6 +108,7 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	public static void getFindNetworksDialog(LoadParameters loadParameters) {
 		if (loadDialog != null && loadDialog.isVisible()) {
+			System.out.println("[FND] getFindNetworksDialog() closing existing visible dialog");
 			loadDialog.setVisible(false);
 		}
 		loadDialog = new FindNetworksDialog(null, loadParameters);
@@ -267,7 +268,7 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 						networkSummaries = mal != null ? mal.getMyNetworks() : List.of();
 					} else {
 						networkSummaries = mal != null
-								? mal.findNetworks(loadParameters.searchTerm, null, null, true, 0, 400).getNetworks()
+								? mal.findNetworks(loadParameters.searchTerm, null, null, true, 0, 100).getNetworks()
 								: List.of();
 					}
 				} catch (IOException | NdexException ex) {
@@ -482,6 +483,8 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	private void getMyNetworks() {
 		final Server selectedServer = ServerManager.INSTANCE.getSelectedServer();
+		System.out.println("[FND] getMyNetworks() selectedServer=" + selectedServer
+				+ " thread=" + Thread.currentThread().getName());
 		try {
 			NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
 
@@ -489,24 +492,35 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 				try {
 					networkSummaries = mal.getMyNetworks();
-					showSearchResults();
+					javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 				} catch (IOException | NdexException ex) {
+					System.err.println("[FND] getMyNetworks() caught IO/NdexException fetching networks: "
+							+ ex.getClass().getSimpleName() + ": " + ex.getMessage());
 					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					javax.swing.SwingUtilities.invokeLater(() ->
+							JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE));
 					return;
 				}
 
 			} else {
-				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-						JOptionPane.ERROR_MESSAGE);
-
+				javax.swing.SwingUtilities.invokeLater(() ->
+						JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
+								JOptionPane.ERROR_MESSAGE));
 			}
 		} catch (HeadlessException | IOException | NdexException e) {
-			// TODO Auto-generated catch block
+			System.err.println("[FND] getMyNetworks() caught exception from getModelAccessLayer/check: "
+					+ e.getClass().getSimpleName() + ": " + e.getMessage());
 			e.printStackTrace();
-			JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-					JOptionPane.ERROR_MESSAGE);
-
+			javax.swing.SwingUtilities.invokeLater(() ->
+					JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
+							JOptionPane.ERROR_MESSAGE));
+		} catch (Exception e) {
+			// Catches NullPointerException (selectedServer==null), RuntimeException from
+			// NdexRestClient (e.g. JsonParseException on HTML redirect), or anything else
+			// not declared above — these would otherwise be swallowed silently by SwingWorker.
+			System.err.println("[FND] getMyNetworks() UNCAUGHT exception (would have been swallowed): "
+					+ e.getClass().getName() + ": " + e.getMessage());
+			e.printStackTrace();
 		}
 	}
 
@@ -522,6 +536,9 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 		if (searchText.isEmpty())
 			searchText = "";
 
+		System.out.println("[FND] search() searchText='" + searchText + "' selectedServer=" + selectedServer
+				+ " thread=" + Thread.currentThread().getName());
+
 		try {
 			NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
 
@@ -529,25 +546,36 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 				try {
 					if (administeredByMe.isSelected()) {
 						networkSummaries = mal.getMyNetworks();
-					} else
-						networkSummaries = mal.findNetworks(searchText, null, null, true, 0, 10000).getNetworks();
+					} else {
+						System.out.println("[FND] search() calling findNetworks...");
+						networkSummaries = mal.findNetworks(searchText, null, null, true, 0, 100).getNetworks();
+						System.out.println("[FND] search() findNetworks returned " + networkSummaries.size() + " results");
+					}
 				} catch (IOException | NdexException ex) {
+					System.err.println("[FND] search() caught IO/NdexException: "
+							+ ex.getClass().getSimpleName() + ": " + ex.getMessage());
 					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					javax.swing.SwingUtilities.invokeLater(() ->
+							JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE));
 					return;
 				}
-				showSearchResults();
+				javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 			} else {
-				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-						JOptionPane.ERROR_MESSAGE);
-
+				javax.swing.SwingUtilities.invokeLater(() ->
+						JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
+								JOptionPane.ERROR_MESSAGE));
 			}
 		} catch (HeadlessException | IOException | NdexException e) {
-			// TODO Auto-generated catch block
+			System.err.println("[FND] search() caught outer exception: "
+					+ e.getClass().getSimpleName() + ": " + e.getMessage());
 			e.printStackTrace();
-			JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-					JOptionPane.ERROR_MESSAGE);
-
+			javax.swing.SwingUtilities.invokeLater(() ->
+					JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
+							JOptionPane.ERROR_MESSAGE));
+		} catch (Exception e) {
+			System.err.println("[FND] search() UNCAUGHT exception (would have been swallowed): "
+					+ e.getClass().getName() + ": " + e.getMessage());
+			e.printStackTrace();
 		}
 	}
 
@@ -561,6 +589,8 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	private void administeredByMeActionPerformed(java.awt.event.ActionEvent evt)// GEN-FIRST:event_administeredByMeActionPerformed
 	{// GEN-HEADEREND:event_administeredByMeActionPerformed
+		System.out.println("[FND] administeredByMeActionPerformed selected=" + administeredByMe.isSelected()
+				+ " thread=" + Thread.currentThread().getName());
 		ModalProgressHelper.runWorker(this, "Updating Networks", () -> {
 			if (administeredByMe.isSelected()) {
 				getMyNetworks();
@@ -576,6 +606,8 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 	private List<NetworkSummary> displayedNetworkSummaries = new ArrayList<>();
 
 	private void showSearchResults() {
+		System.out.println("[FND] showSearchResults() EDT=" + javax.swing.SwingUtilities.isEventDispatchThread()
+				+ " thread=" + Thread.currentThread().getName());
 		NetworkSummaryTableModel model = new NetworkSummaryTableModel(networkSummaries, this::load);
 		displayedNetworkSummaries.clear();
 		for (NetworkSummary networkSummary : networkSummaries) {
