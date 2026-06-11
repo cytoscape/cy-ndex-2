@@ -26,6 +26,8 @@
 
 package org.cytoscape.cyndex2.internal.util;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -106,15 +108,19 @@ public class ServerManager {
 	}
 
 	public static String addHttpProtocol(String url) {
-		return url.toLowerCase().startsWith("http://") || url.toLowerCase().startsWith("https://") 
-				? url
-				: "http://" + url;
+		return hasScheme(url) ? url : "http://" + url;
 	}
-	
+
 	public static String addHttpsProtocol(String url) {
-		return url.toLowerCase().startsWith("http://") || url.toLowerCase().startsWith("https://") 
-				? url
-				: "https://" + url;
+		return hasScheme(url) ? url : "https://" + url;
+	}
+
+	private static boolean hasScheme(String url) {
+		try {
+			return url != null && new URI(url).getScheme() != null;
+		} catch (URISyntaxException e) {
+			return false;
+		}
 	}
 	
 	public static String getBaseRoute(String url) {

@@ -47,9 +47,9 @@ public class NdexV3AdminStatusTest {
 	}
 
 	@Test
-	public void testHttpNotHttps() {
-		NdexV3AdminStatus s = make("http://auth.example.org/register", "https://auth.example.org/reset");
-		assertFalse(s.hasValidOAuthUrls());
+	public void testHttpUrls() {
+		NdexV3AdminStatus s = make("http://auth.example.org/register", "http://auth.example.org/reset");
+		assertTrue(s.hasValidOAuthUrls());
 	}
 
 	@Test
@@ -59,27 +59,27 @@ public class NdexV3AdminStatusTest {
 	}
 
 	@Test
-	public void testIsValidHttpsUrl_null() {
-		assertFalse(NdexV3AdminStatus.isValidHttpsUrl(null));
+	public void testIsValidUrl_null() {
+		assertFalse(NdexV3AdminStatus.isValidUrl(null));
 	}
 
 	@Test
-	public void testIsValidHttpsUrl_blank() {
-		assertFalse(NdexV3AdminStatus.isValidHttpsUrl(""));
+	public void testIsValidUrl_blank() {
+		assertFalse(NdexV3AdminStatus.isValidUrl(""));
 	}
 
 	@Test
-	public void testIsValidHttpsUrl_http() {
-		assertFalse(NdexV3AdminStatus.isValidHttpsUrl("http://example.org"));
+	public void testIsValidUrl_http() {
+		assertTrue(NdexV3AdminStatus.isValidUrl("http://example.org"));
 	}
 
 	@Test
-	public void testIsValidHttpsUrl_valid() {
-		assertTrue(NdexV3AdminStatus.isValidHttpsUrl("https://example.org/path?q=1"));
+	public void testIsValidUrl_https() {
+		assertTrue(NdexV3AdminStatus.isValidUrl("https://example.org/path?q=1"));
 	}
 
 	@Test
-	public void testIsValidHttpsUrl_uppercaseHttps() {
-		assertTrue(NdexV3AdminStatus.isValidHttpsUrl("HTTPS://example.org"));
+	public void testIsValidUrl_uppercaseHttps() {
+		assertTrue(NdexV3AdminStatus.isValidUrl("HTTPS://example.org"));
 	}
 }

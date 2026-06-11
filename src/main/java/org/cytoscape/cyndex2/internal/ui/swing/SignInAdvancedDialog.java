@@ -5,6 +5,8 @@
  */
 package org.cytoscape.cyndex2.internal.ui.swing;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
@@ -176,8 +178,12 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 	}
 
 	public static String resolveServerUrl(String trimmedURL, CandidateVerifier verifier) {
-		boolean hasProtocol = trimmedURL.toLowerCase().startsWith("http://")
-				|| trimmedURL.toLowerCase().startsWith("https://");
+		boolean hasProtocol;
+		try {
+			hasProtocol = new URI(trimmedURL).getScheme() != null;
+		} catch (URISyntaxException e) {
+			hasProtocol = false;
+		}
 		String[] candidates = hasProtocol
 				? new String[]{ trimmedURL }
 				: new String[]{ trimmedURL, "https://" + trimmedURL };

@@ -107,15 +107,15 @@ public class ServerManagerFetchStatusTest {
 	}
 
 	@Test
-	public void testNonHttpsUrlsRejected() throws IOException {
+	public void testHttpUrlsAccepted() throws IOException {
 		String json = "{\"oauth_register_url\":\"http://auth.example.org/register\","
-				+ "\"oauth_reset_url\":\"https://auth.example.org/reset\"}";
+				+ "\"oauth_reset_url\":\"http://auth.example.org/reset\"}";
 		setupResponse(200, json);
 
 		NdexV3AdminStatus result = NdexV3AdminStatus.fetch("public.ndexbio.org", mockClient);
 
 		assertNotNull(result);
-		assertFalse(result.hasValidOAuthUrls());
+		assertTrue(result.hasValidOAuthUrls());
 	}
 
 }

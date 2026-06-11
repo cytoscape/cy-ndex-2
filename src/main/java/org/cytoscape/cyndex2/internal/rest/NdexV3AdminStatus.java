@@ -1,5 +1,7 @@
 package org.cytoscape.cyndex2.internal.rest;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,12 +45,18 @@ public class NdexV3AdminStatus {
 		this.oauth_reset_url = oauth_reset_url;
 	}
 
-	public static boolean isValidHttpsUrl(String url) {
-		return url != null && url.toLowerCase().startsWith("https://");
+	public static boolean isValidUrl(String url) {
+		if (url == null) return false;
+		try {
+			String scheme = new URI(url).getScheme();
+			return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+		} catch (URISyntaxException e) {
+			return false;
+		}
 	}
 
 	public boolean hasValidOAuthUrls() {
-		return isValidHttpsUrl(oauth_register_url) && isValidHttpsUrl(oauth_reset_url);
+		return isValidUrl(oauth_register_url) && isValidUrl(oauth_reset_url);
 	}
 
 	public static NdexV3AdminStatus fetch(String serverUrl, HttpClient httpClient) {
@@ -61,9 +69,7 @@ public class NdexV3AdminStatus {
 			httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
 		}
 		try {
-			String baseUrl = serverUrl.toLowerCase().startsWith("http://") || serverUrl.toLowerCase().startsWith("https://")
-					? serverUrl
-					: "https://" + serverUrl;
+			String baseUrl = isValidUrl(serverUrl) ? serverUrl : "https://" + serverUrl;
 			final HttpGet get = new HttpGet(baseUrl + "/v3/admin/status");
 			final HttpResponse response = httpClient.execute(get);
 
