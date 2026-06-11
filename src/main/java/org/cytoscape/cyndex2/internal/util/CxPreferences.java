@@ -43,7 +43,6 @@ public class CxPreferences {
 
 	public static CreateViewEnum getCreateView() {
 		final String property = getProperty(CREATE_VIEW_PROPERTY);
-		System.out.println("CREATE_VIEW_PROPERTY=" + property);
 		return CreateViewEnum.ALWAYS.toString().toLowerCase().equals(property) ? CreateViewEnum.ALWAYS
 				: CreateViewEnum.NEVER.toString().toLowerCase().equals(property) ? CreateViewEnum.NEVER
 						: CreateViewEnum.AUTO;

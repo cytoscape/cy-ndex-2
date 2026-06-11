@@ -70,7 +70,6 @@ public class ProfilePopupMenu extends JPopupMenu {
 			add(new JMenuItem(new AbstractAction("Remove Current Profile", REMOVE_PROFILE_ICON) {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					System.out.println("log out " + selectedServer.getUsername() + "@" + selectedServer.getUrl());
 					ServerManager.INSTANCE.removeServer(selectedServer);
 				}
 			}));

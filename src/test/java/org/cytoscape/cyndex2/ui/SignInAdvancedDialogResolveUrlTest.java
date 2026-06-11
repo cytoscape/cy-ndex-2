@@ -63,4 +63,39 @@ public class SignInAdvancedDialogResolveUrlTest {
         assertEquals("http://symposium.ndexbio.org", result);
         assertEquals(1, calls.get());
     }
+
+    @Test
+    public void testLocalhostPort_firstCandidateSucceeds() throws Exception {
+        // localhost:8080 must NOT be treated as having a scheme — two candidates should be tried
+        AtomicInteger calls = new AtomicInteger(0);
+        String result = SignInAdvancedDialog.resolveServerUrl("localhost:8080", candidate -> {
+            calls.incrementAndGet();
+            return true;
+        });
+        assertEquals("localhost:8080", result);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void testLocalhostPort_fallsBackToHttps() throws Exception {
+        AtomicInteger calls = new AtomicInteger(0);
+        String result = SignInAdvancedDialog.resolveServerUrl("localhost:8080", candidate -> {
+            calls.incrementAndGet();
+            if (candidate.toLowerCase().startsWith("https://")) return true;
+            throw new IOException("connection refused");
+        });
+        assertEquals("https://localhost:8080", result);
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    public void testIpPort_firstCandidateSucceeds() throws Exception {
+        AtomicInteger calls = new AtomicInteger(0);
+        String result = SignInAdvancedDialog.resolveServerUrl("127.0.0.1:9999", candidate -> {
+            calls.incrementAndGet();
+            return true;
+        });
+        assertEquals("127.0.0.1:9999", result);
+        assertEquals(1, calls.get());
+    }
 }

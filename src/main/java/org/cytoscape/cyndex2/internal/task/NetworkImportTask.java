@@ -43,6 +43,8 @@ import org.cytoscape.io.write.CyWriter;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.model.subnetwork.CySubNetwork;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.TaskIterator;
@@ -113,11 +115,11 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 							Method setCreateViewMethod = cxReader.getMethod("setCreateView", Boolean.class);
 							setCreateViewMethod.invoke(task, createView);
 						} catch(java.lang.NoSuchMethodException e) {
-							System.err.println("Unable to explicitly set view creation. Make sure a current version of the CX Support app is installed.");
+							Logger.getLogger(NetworkImportTask.class.getName()).warning("Unable to explicitly set view creation. Make sure a current version of the CX Support app is installed.");
 						}
 						task.run(new HeadlessTaskMonitor());
 					} catch (Exception e) {
-						e.printStackTrace();
+						Logger.getLogger(NetworkImportTask.class.getName()).log(Level.WARNING, "Network import task failed", e);
 					}
 				}
 			});

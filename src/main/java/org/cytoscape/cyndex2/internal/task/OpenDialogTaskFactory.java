@@ -47,8 +47,6 @@ public class OpenDialogTaskFactory extends AbstractTaskFactory {
 		// Store query info
 		ExternalAppManager.appName = appName;
 
-		System.out.println("open dialog for: " + appName);
-		
 		ti.append(new AbstractTask() {
 
 			@Override

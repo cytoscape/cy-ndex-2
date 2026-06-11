@@ -200,12 +200,9 @@ public class UpdateSettingsDialog extends javax.swing.JDialog {
 
 	private void applySettings() {
 		if (!changed || this.noInitialUUID && uuidTextField.getText().trim().length() == 0) {
-			System.out.println("Nothing changed. Leaving old UUID");
 			setVisible(false);
 			return;
 		}
-
-		System.out.println("UUID changed. Verifying.");
 		Timestamp serverTimestamp;
 		UUID verifiedUUID;
 		try {

@@ -5,8 +5,6 @@
  */
 package org.cytoscape.cyndex2.internal.ui.swing;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
@@ -15,6 +13,7 @@ import javax.swing.event.DocumentListener;
 
 import org.cytoscape.cyndex2.internal.CyActivator;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
+import org.cytoscape.cyndex2.internal.util.UrlUtils;
 import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.ndexbio.model.object.NdexStatus;
 import org.ndexbio.rest.client.NdexRestClient;
@@ -178,12 +177,7 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 	}
 
 	public static String resolveServerUrl(String trimmedURL, CandidateVerifier verifier) {
-		boolean hasProtocol;
-		try {
-			hasProtocol = new URI(trimmedURL).getScheme() != null;
-		} catch (URISyntaxException e) {
-			hasProtocol = false;
-		}
+		boolean hasProtocol = UrlUtils.hasHttpScheme(trimmedURL);
 		String[] candidates = hasProtocol
 				? new String[]{ trimmedURL }
 				: new String[]{ trimmedURL, "https://" + trimmedURL };
@@ -199,13 +193,11 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 
 	private void applySettings() {
 		if (!changed || serverURLTextField.getText().trim().length() == 0) {
-			System.out.println("Nothing changed. Leaving old server URL");
 			setVisible(false);
 			return;
 		}
 
 		final String trimmedURL = serverURLTextField.getText().trim();
-		System.out.println("Server URL changed. Verifying: " + trimmedURL);
 
 		final Exception[] lastError = { null };
 		String verifiedURL = resolveServerUrl(trimmedURL, candidate -> {

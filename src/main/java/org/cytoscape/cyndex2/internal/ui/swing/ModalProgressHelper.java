@@ -2,6 +2,8 @@ package org.cytoscape.cyndex2.internal.ui.swing;
 
 import java.awt.BorderLayout;
 import java.util.function.IntSupplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.JDialog;
 import javax.swing.JProgressBar;
@@ -30,14 +32,10 @@ public class ModalProgressHelper {
 			protected void done() {
 				try {
 					get();
-					System.out.println("[MPH] worker '" + title + "' done normally");
 				} catch (java.util.concurrent.ExecutionException ex) {
 					Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-					System.err.println("[MPH] worker '" + title + "' done with exception: "
-							+ cause.getClass().getName() + ": " + cause.getMessage());
-					cause.printStackTrace();
+					Logger.getLogger(ModalProgressHelper.class.getName()).log(Level.WARNING, "Worker '" + title + "' failed", cause);
 				} catch (InterruptedException ex) {
-					System.err.println("[MPH] worker '" + title + "' interrupted: " + ex.getMessage());
 					Thread.currentThread().interrupt();
 				} finally {
 					dlgProgress.dispose();

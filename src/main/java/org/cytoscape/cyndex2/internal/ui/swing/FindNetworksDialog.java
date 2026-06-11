@@ -64,6 +64,8 @@ import org.cytoscape.cyndex2.internal.util.CxPreferences;
 import org.cytoscape.cyndex2.internal.util.ErrorMessage;
 import org.cytoscape.cyndex2.internal.util.IconUtil;
 import org.cytoscape.cyndex2.internal.util.Server;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.util.swing.IconManager;
 import org.cytoscape.util.swing.TextIcon;
@@ -108,7 +110,6 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	public static void getFindNetworksDialog(LoadParameters loadParameters) {
 		if (loadDialog != null && loadDialog.isVisible()) {
-			System.out.println("[FND] getFindNetworksDialog() closing existing visible dialog");
 			loadDialog.setVisible(false);
 		}
 		loadDialog = new FindNetworksDialog(null, loadParameters);
@@ -313,7 +314,7 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 										: "<html>" + networkSummary.getDescription() + "</html>";
 								jcomp.setToolTipText(toolTip);
 							} catch (Exception e) {
-								System.out.println("Ignored table renderer error while making tool tip");
+								// ignored — tooltip is best-effort
 							}
 						}
 					}
@@ -483,8 +484,6 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	private void getMyNetworks() {
 		final Server selectedServer = ServerManager.INSTANCE.getSelectedServer();
-		System.out.println("[FND] getMyNetworks() selectedServer=" + selectedServer
-				+ " thread=" + Thread.currentThread().getName());
 		try {
 			NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
 
@@ -494,9 +493,6 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 					networkSummaries = mal.getMyNetworks();
 					javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 				} catch (IOException | NdexException ex) {
-					System.err.println("[FND] getMyNetworks() caught IO/NdexException fetching networks: "
-							+ ex.getClass().getSimpleName() + ": " + ex.getMessage());
-					ex.printStackTrace();
 					javax.swing.SwingUtilities.invokeLater(() ->
 							JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE));
 					return;
@@ -508,19 +504,12 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 								JOptionPane.ERROR_MESSAGE));
 			}
 		} catch (HeadlessException | IOException | NdexException e) {
-			System.err.println("[FND] getMyNetworks() caught exception from getModelAccessLayer/check: "
-					+ e.getClass().getSimpleName() + ": " + e.getMessage());
-			e.printStackTrace();
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "getMyNetworks failed", e);
 			javax.swing.SwingUtilities.invokeLater(() ->
 					JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
 							JOptionPane.ERROR_MESSAGE));
 		} catch (Exception e) {
-			// Catches NullPointerException (selectedServer==null), RuntimeException from
-			// NdexRestClient (e.g. JsonParseException on HTML redirect), or anything else
-			// not declared above — these would otherwise be swallowed silently by SwingWorker.
-			System.err.println("[FND] getMyNetworks() UNCAUGHT exception (would have been swallowed): "
-					+ e.getClass().getName() + ": " + e.getMessage());
-			e.printStackTrace();
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "getMyNetworks unexpected exception", e);
 		}
 	}
 
@@ -536,9 +525,6 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 		if (searchText.isEmpty())
 			searchText = "";
 
-		System.out.println("[FND] search() searchText='" + searchText + "' selectedServer=" + selectedServer
-				+ " thread=" + Thread.currentThread().getName());
-
 		try {
 			NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
 
@@ -547,14 +533,9 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 					if (administeredByMe.isSelected()) {
 						networkSummaries = mal.getMyNetworks();
 					} else {
-						System.out.println("[FND] search() calling findNetworks...");
 						networkSummaries = mal.findNetworks(searchText, null, null, true, 0, 100).getNetworks();
-						System.out.println("[FND] search() findNetworks returned " + networkSummaries.size() + " results");
 					}
 				} catch (IOException | NdexException ex) {
-					System.err.println("[FND] search() caught IO/NdexException: "
-							+ ex.getClass().getSimpleName() + ": " + ex.getMessage());
-					ex.printStackTrace();
 					javax.swing.SwingUtilities.invokeLater(() ->
 							JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE));
 					return;
@@ -566,16 +547,12 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 								JOptionPane.ERROR_MESSAGE));
 			}
 		} catch (HeadlessException | IOException | NdexException e) {
-			System.err.println("[FND] search() caught outer exception: "
-					+ e.getClass().getSimpleName() + ": " + e.getMessage());
-			e.printStackTrace();
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "search failed", e);
 			javax.swing.SwingUtilities.invokeLater(() ->
 					JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
 							JOptionPane.ERROR_MESSAGE));
 		} catch (Exception e) {
-			System.err.println("[FND] search() UNCAUGHT exception (would have been swallowed): "
-					+ e.getClass().getName() + ": " + e.getMessage());
-			e.printStackTrace();
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "search unexpected exception", e);
 		}
 	}
 
@@ -589,8 +566,6 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	private void administeredByMeActionPerformed(java.awt.event.ActionEvent evt)// GEN-FIRST:event_administeredByMeActionPerformed
 	{// GEN-HEADEREND:event_administeredByMeActionPerformed
-		System.out.println("[FND] administeredByMeActionPerformed selected=" + administeredByMe.isSelected()
-				+ " thread=" + Thread.currentThread().getName());
 		ModalProgressHelper.runWorker(this, "Updating Networks", () -> {
 			if (administeredByMe.isSelected()) {
 				getMyNetworks();
@@ -606,8 +581,6 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 	private List<NetworkSummary> displayedNetworkSummaries = new ArrayList<>();
 
 	private void showSearchResults() {
-		System.out.println("[FND] showSearchResults() EDT=" + javax.swing.SwingUtilities.isEventDispatchThread()
-				+ " thread=" + Thread.currentThread().getName());
 		NetworkSummaryTableModel model = new NetworkSummaryTableModel(networkSummaries, this::load);
 		displayedNetworkSummaries.clear();
 		for (NetworkSummary networkSummary : networkSummaries) {

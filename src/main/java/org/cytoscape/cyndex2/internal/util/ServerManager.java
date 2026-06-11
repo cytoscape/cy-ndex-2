@@ -26,8 +26,6 @@
 
 package org.cytoscape.cyndex2.internal.util;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -108,23 +106,15 @@ public class ServerManager {
 	}
 
 	public static String addHttpProtocol(String url) {
-		return hasScheme(url) ? url : "http://" + url;
+		return UrlUtils.addHttpProtocol(url);
 	}
 
 	public static String addHttpsProtocol(String url) {
-		return hasScheme(url) ? url : "https://" + url;
+		return UrlUtils.addHttpsProtocol(url);
 	}
 
-	private static boolean hasScheme(String url) {
-		try {
-			return url != null && new URI(url).getScheme() != null;
-		} catch (URISyntaxException e) {
-			return false;
-		}
-	}
-	
 	public static String getBaseRoute(String url) {
-		return addHttpProtocol(url) + "/v2";
+		return UrlUtils.getBaseRoute(url);
 	}
 
 	/**
@@ -143,10 +133,8 @@ public class ServerManager {
 		} */
 
 		if (username == null && password == null) {
-			System.out.println("Anonymous access");
 			// Anonymous access
 		} else if (username != null && password != null) {
-			System.out.println("Accessing as " + username);
 			CredentialsProvider provider = new BasicCredentialsProvider();
 			UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(username, password);
 
@@ -174,10 +162,8 @@ public class ServerManager {
 				}
 			}
 		} else if (password == null) {
-			System.out.println("no password");
 			throw new Exception("Password must be provided");
 		} else if (username == null) {
-			System.out.println("no username");
 			throw new Exception("Passwords are not used for anonymous access.");
 		}
 
