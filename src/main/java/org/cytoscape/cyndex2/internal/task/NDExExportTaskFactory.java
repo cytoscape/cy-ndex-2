@@ -75,9 +75,8 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 		if (setWriteSiblingsMethod != null) {
 			try {
 				setWriteSiblingsMethod.invoke(writer, collection);
-				System.out.println("setWriteSiblingsMethod(" + collection + ")");
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-				e.printStackTrace();
+				// reflection call failed — writer does not support this method
 			}
 		} else {
 			
@@ -86,9 +85,8 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 		if (setWriteSiblingsMethod != null) {
 			try {
 				setUseCxIdMethod.invoke(writer, !collection);
-				System.out.println("setUseCxIdMethod(" + !collection + ")");
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-				e.printStackTrace();
+				// reflection call failed — writer does not support this method
 			}
 		} else {
 			

@@ -127,18 +127,9 @@ public class ServerList extends AbstractListModel<Server> {
 									? new String(cipher.doFinal(Base64.getDecoder().decode(passwordElement.getAsString())), "UTF-8")
 									: null;
 							server.setPassword(password);
-						} catch (InvalidKeyException e) {
-							e.printStackTrace();
-						} catch (NoSuchAlgorithmException e) {
-							e.printStackTrace();
-						} catch (NoSuchPaddingException e) {
-							e.printStackTrace();
-						} catch (IllegalBlockSizeException e) {
-							e.printStackTrace();
-						} catch (BadPaddingException e) {
-							e.printStackTrace();
-						} catch (UnsupportedEncodingException e) {
-							e.printStackTrace();
+						} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+								| IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException e) {
+							Logger.getLogger(ServerList.class.getName()).log(Level.WARNING, "Failed to decrypt password", e);
 						}
 
 						return server;
@@ -169,18 +160,9 @@ public class ServerList extends AbstractListModel<Server> {
 
 							obj.addProperty("password",
 									Base64.getEncoder().encodeToString(cipher.doFinal(server.getPassword().getBytes("UTF-8"))));
-						} catch (InvalidKeyException e) {
-							e.printStackTrace();
-						} catch (NoSuchAlgorithmException e) {
-							e.printStackTrace();
-						} catch (NoSuchPaddingException e) {
-							e.printStackTrace();
-						} catch (IllegalBlockSizeException e) {
-							e.printStackTrace();
-						} catch (BadPaddingException e) {
-							e.printStackTrace();
-						} catch (UnsupportedEncodingException e) {
-							e.printStackTrace();
+						} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+								| IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException e) {
+							Logger.getLogger(ServerList.class.getName()).log(Level.WARNING, "Failed to encrypt password", e);
 						}
 					}
 					return obj;
@@ -191,7 +173,7 @@ public class ServerList extends AbstractListModel<Server> {
 		try {
 			Files.write(json, file, Charsets.UTF_8);
 		} catch (IOException ex) {
-			ex.printStackTrace();
+			Logger.getLogger(ServerList.class.getName()).log(Level.WARNING, "Failed to write server list", ex);
 		}
 	}
 

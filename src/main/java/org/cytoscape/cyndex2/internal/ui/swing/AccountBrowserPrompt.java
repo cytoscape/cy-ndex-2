@@ -99,7 +99,7 @@ public class AccountBrowserPrompt extends javax.swing.JDialog {
         try {
             Desktop.getDesktop().browse(uri);
         } catch (IOException ex) {
-            ex.printStackTrace();
+            Logger.getLogger(AccountBrowserPrompt.class.getName()).log(Level.WARNING, "Failed to open browser", ex);
         }
     }//GEN-LAST:event_jButton2ActionPerformed
 

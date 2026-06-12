@@ -18,6 +18,8 @@ import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 
 import static org.cytoscape.util.swing.IconManager.ICON_QUESTION_CIRCLE_O;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.Dialog;
 import java.io.IOException;
 
@@ -65,7 +67,7 @@ public class LargeNetworkDialog extends javax.swing.JDialog {
 				hasView = metaDataCollection.getMetaDataElement("cyVisualProperties") != null;
 				
 			} catch (IOException | NdexException e) {
-				e.printStackTrace();
+				Logger.getLogger(LargeNetworkDialog.class.getName()).log(Level.WARNING, "Failed to fetch network metadata; assuming view exists", e);
 				hasView = true;
 			}
 		initComponents();

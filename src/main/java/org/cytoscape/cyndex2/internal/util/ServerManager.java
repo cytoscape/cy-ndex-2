@@ -106,19 +106,15 @@ public class ServerManager {
 	}
 
 	public static String addHttpProtocol(String url) {
-		return url.toLowerCase().startsWith("http://") || url.toLowerCase().startsWith("https://") 
-				? url
-				: "http://" + url;
+		return UrlUtils.addHttpProtocol(url);
 	}
-	
+
 	public static String addHttpsProtocol(String url) {
-		return url.toLowerCase().startsWith("http://") || url.toLowerCase().startsWith("https://") 
-				? url
-				: "https://" + url;
+		return UrlUtils.addHttpsProtocol(url);
 	}
-	
+
 	public static String getBaseRoute(String url) {
-		return addHttpProtocol(url) + "/v2";
+		return UrlUtils.getBaseRoute(url);
 	}
 
 	/**
@@ -137,10 +133,8 @@ public class ServerManager {
 		} */
 
 		if (username == null && password == null) {
-			System.out.println("Anonymous access");
 			// Anonymous access
 		} else if (username != null && password != null) {
-			System.out.println("Accessing as " + username);
 			CredentialsProvider provider = new BasicCredentialsProvider();
 			UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(username, password);
 
@@ -168,10 +162,8 @@ public class ServerManager {
 				}
 			}
 		} else if (password == null) {
-			System.out.println("no password");
 			throw new Exception("Password must be provided");
 		} else if (username == null) {
-			System.out.println("no username");
 			throw new Exception("Passwords are not used for anonymous access.");
 		}
 
@@ -222,7 +214,7 @@ public class ServerManager {
 		try {
 			Files.asCharSink( serverFile, Charsets.UTF_8).write(json);
 		} catch (IOException ex) {
-			ex.printStackTrace();
+			Logger.getLogger(ServerManager.class.getName()).log(Level.WARNING, "Failed to save selected server key", ex);
 		}
 
 	}
@@ -254,6 +246,5 @@ public class ServerManager {
 			return null;
 		}
 	}
-
 
 }
