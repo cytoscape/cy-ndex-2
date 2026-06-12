@@ -19,9 +19,29 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
         cache: 'maven'
-        server-id: cytoscape_releases
-        server-username: REPO_USER
-        server-password: REPO_PWD
+
+    - name: Configure Maven settings
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << 'EOF'
+        <settings>
+          <servers>
+            <server>
+              <id>cytoscape_releases</id>
+              <username>${env.REPO_USER}</username>
+              <password>${env.REPO_PWD}</password>
+            </server>
+          </servers>
+          <mirrors>
+            <mirror>
+              <id>maven-default-http-blocker</id>
+              <mirrorOf>dummy</mirrorOf>
+              <name>Dummy mirror</name>
+              <url>http://0.0.0.0/</url>
+            </mirror>
+          </mirrors>
+        </settings>
+        EOF
 
     - name: Extract and validate version from tag
       id: version

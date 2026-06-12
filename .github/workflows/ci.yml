@@ -23,5 +23,21 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
+    - name: Allow HTTP Maven repositories
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << 'EOF'
+        <settings>
+          <mirrors>
+            <mirror>
+              <id>maven-default-http-blocker</id>
+              <mirrorOf>dummy</mirrorOf>
+              <name>Dummy mirror</name>
+              <url>http://0.0.0.0/</url>
+            </mirror>
+          </mirrors>
+        </settings>
+        EOF
+
     - name: Run tests
       run: xvfb-run mvn test
