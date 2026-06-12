@@ -1,5 +1,7 @@
 package org.cytoscape.cyndex2.internal.ui.swing;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
@@ -59,8 +61,7 @@ public class ProfilePopupMenu extends JPopupMenu {
 							try {
 								ServerManager.INSTANCE.addServer(null, null, selectedServer.getUrl());
 							} catch (Exception e1) {
-								// TODO Auto-generated catch block
-								e1.printStackTrace();
+								Logger.getLogger(ProfilePopupMenu.class.getName()).log(Level.WARNING, "Failed to add anonymous server", e1);
 							}
 						}
 					}

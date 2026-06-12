@@ -154,7 +154,6 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 		} catch (IOException ex) {
 			throw new NetworkImportException("Failed to parse JSON from NDEx source.");
 		} catch (RuntimeException ex2) {
-			ex2.printStackTrace();
 			throw new NetworkImportException(ex2.getMessage());
 		} catch (NdexException e) {
 			throw new NetworkImportException("Unable to read network from NDEx: " + e.getMessage());
@@ -171,7 +170,7 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 		try {
 			cxStream.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			Logger.getLogger(NetworkImportTask.class.getName()).log(Level.WARNING, "Failed to close CX stream on cancel", e);
 		}
 	}
 

@@ -82,4 +82,19 @@ public class NdexV3AdminStatusTest {
 	public void testIsValidUrl_uppercaseHttps() {
 		assertTrue(NdexV3AdminStatus.isValidUrl("HTTPS://example.org"));
 	}
+
+	@Test
+	public void testIsValidUrl_ftp_rejected() {
+		assertFalse(NdexV3AdminStatus.isValidUrl("ftp://example.org"));
+	}
+
+	@Test
+	public void testIsValidUrl_javascript_rejected() {
+		assertFalse(NdexV3AdminStatus.isValidUrl("javascript:alert(1)"));
+	}
+
+	@Test
+	public void testIsValidUrl_noScheme_rejected() {
+		assertFalse(NdexV3AdminStatus.isValidUrl("example.org"));
+	}
 }

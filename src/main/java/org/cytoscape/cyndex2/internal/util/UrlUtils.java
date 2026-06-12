@@ -18,14 +18,23 @@ public final class UrlUtils {
 	}
 
 	public static String addHttpProtocol(String url) {
-		return hasHttpScheme(url) ? url : "http://" + url;
+		if (url == null || url.isEmpty()) return url;
+		if (hasHttpScheme(url)) return url;
+		// Don't mangle URLs that already carry a non-http scheme (e.g. ftp://)
+		if (url.contains("://")) return url;
+		return "http://" + url;
 	}
 
 	public static String addHttpsProtocol(String url) {
-		return hasHttpScheme(url) ? url : "https://" + url;
+		if (url == null || url.isEmpty()) return url;
+		if (hasHttpScheme(url)) return url;
+		if (url.contains("://")) return url;
+		return "https://" + url;
 	}
 
 	public static String getBaseRoute(String url) {
-		return addHttpProtocol(url) + "/v2";
+		if (url == null || url.isEmpty()) return url;
+		String withProto = addHttpProtocol(url);
+		return (withProto.endsWith("/v2") || withProto.endsWith("/v2/")) ? withProto : withProto + "/v2";
 	}
 }

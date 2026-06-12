@@ -5,14 +5,11 @@
  */
 package org.cytoscape.cyndex2.internal.ui.swing;
 
-import java.awt.Color;
-import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,11 +18,9 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.KeyStroke;
-import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 
 import org.cytoscape.cyndex2.internal.CyServiceModule;
-import org.cytoscape.cyndex2.internal.rest.NdexV3AdminStatus;
+import org.cytoscape.cyndex2.internal.rest.NdexAdminStatusService;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.util.swing.IconManager;
 
@@ -46,18 +41,22 @@ public class SignInDialog extends javax.swing.JDialog {
 
 	private String serverURL = "www.ndexbio.org";
 
-	private String registerUrl = null;
-	private String resetUrl = null;
-	private String swaggerUrl = null;
+	private SignInLinkAreaController controller;
 
 	/**
 	 * Creates new form NewJDialog
 	 */
 	public SignInDialog(JDialog parent) {
+		this(parent, CyServiceModule.getAdminStatusService());
+	}
+
+	SignInDialog(JDialog parent, NdexAdminStatusService service) {
 		super(parent, true);
 		initComponents();
 		this.getRootPane().setDefaultButton(save);
-		refreshLinkArea();
+		this.controller = new SignInLinkAreaController(
+				forgotPasswordLabel, signUpLabel, needAccountLabel, needAccountLabel1, service);
+		controller.refresh(serverURL);
 	}
 
 	/**
@@ -246,89 +245,27 @@ public class SignInDialog extends javax.swing.JDialog {
 
 
 	private void forgotPasswordLabelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_forgotPasswordLabelMouseClicked
-		if (resetUrl == null) return;
+		String url = controller.getResetUrl();
+		if (url == null) return;
 		try {
-			Desktop.getDesktop().browse(new URI(resetUrl));
+			Desktop.getDesktop().browse(new URI(url));
 		} catch (URISyntaxException | IOException ex) {
 			Logger.getLogger(SignInDialog.class.getName()).log(Level.SEVERE, null, ex);
 		}
 	}// GEN-LAST:event_forgotPasswordLabelMouseClicked
 
 	private void signUpLabelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_signUpLabelMouseClicked
-		String urlToOpen = registerUrl != null ? registerUrl : swaggerUrl;
-		if (urlToOpen == null) return;
+		String url = controller.getRegisterUrl() != null ? controller.getRegisterUrl() : controller.getSwaggerUrl();
+		if (url == null) return;
 		try {
-			Desktop.getDesktop().browse(new URI(urlToOpen));
+			Desktop.getDesktop().browse(new URI(url));
 		} catch (IOException | URISyntaxException ex) {
 			Logger.getLogger(SignInDialog.class.getName()).log(Level.SEVERE, null, ex);
 		}
 	}// GEN-LAST:event_signUpLabelMouseClicked
 
 	private void refreshLinkArea() {
-		// Temporarily hide link area while fetching
-		setLinkLabelsVisible(false);
-		forgotPasswordLabel.setText("");
-		signUpLabel.setText("");
-
-		new SwingWorker<NdexV3AdminStatus, Void>() {
-			@Override
-			protected NdexV3AdminStatus doInBackground() {
-				return NdexV3AdminStatus.fetch(serverURL, null);
-			}
-
-			@Override
-			protected void done() {
-				NdexV3AdminStatus status = null;
-				try {
-					status = get();
-				} catch (InterruptedException | ExecutionException e) {
-					Logger.getLogger(SignInDialog.class.getName()).log(Level.WARNING,
-							"fetchV3AdminStatus interrupted", e);
-				}
-
-				if (status != null && status.hasValidOAuthUrls()) {
-					registerUrl = status.getOauthRegisterUrl();
-					resetUrl = status.getOauthResetUrl();
-					forgotPasswordLabel.setText("Click here to reset it in browser");
-					forgotPasswordLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-					forgotPasswordLabel.setForeground(new Color(51, 122, 183));
-					signUpLabel.setText("Click here to Sign Up in browser");
-					signUpLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-					signUpLabel.setForeground(new Color(51, 122, 183));
-					setLinkLabelsVisible(true);
-				} else {
-					registerUrl = null;
-					resetUrl = null;
-					needAccountLabel1.setVisible(false);
-					needAccountLabel.setVisible(false);
-					forgotPasswordLabel.setText("<html><body style='width:260px'>"
-							+ "To register or reset your password, visit the <b>My Account</b> page "
-							+ "on your NDEx server's website."
-							+ "</body></html>");
-					forgotPasswordLabel.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-					forgotPasswordLabel.setForeground(UIManager.getColor("Label.foreground"));
-					forgotPasswordLabel.setVisible(true);
-					swaggerUrl = null;
-					signUpLabel.setText("<html><body style='width:260px'>"
-							+ "Alternatively, can use the REST API directly to change password "
-							+ "or create new user. Refer to the swagger docs published at url "
-							+ "path of <tt>/swagger/index.html</tt> on the NDEx server for the "
-							+ "<b>V2 - user</b> section which has details for endpoints."
-							+ "</body></html>");
-					signUpLabel.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-					signUpLabel.setForeground(UIManager.getColor("Label.foreground"));
-					signUpLabel.setVisible(true);
-				}
-				pack();
-			}
-		}.execute();
-	}
-
-	private void setLinkLabelsVisible(boolean visible) {
-		needAccountLabel1.setVisible(visible);
-		forgotPasswordLabel.setVisible(visible);
-		needAccountLabel.setVisible(visible);
-		signUpLabel.setVisible(visible);
+		controller.refresh(serverURL);
 	}
 
 	private void signInToServer() {
@@ -349,7 +286,7 @@ public class SignInDialog extends javax.swing.JDialog {
 			ServerManager.INSTANCE.addServer(userName, passwordText, serverURL);
 			setVisible(false);
 		} catch (Exception ex) {
-			ex.printStackTrace();
+			Logger.getLogger(SignInDialog.class.getName()).log(Level.WARNING, "Failed to add server", ex);
 			JOptionPane.showMessageDialog(this, ex.getMessage(), "Error Adding Server", JOptionPane.ERROR_MESSAGE);
 		}
 	}

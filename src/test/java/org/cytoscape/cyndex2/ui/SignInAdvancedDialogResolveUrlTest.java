@@ -18,7 +18,7 @@ public class SignInAdvancedDialogResolveUrlTest {
             calls.incrementAndGet();
             return true;
         });
-        assertEquals("symposium.ndexbio.org", result);
+        assertEquals("http://symposium.ndexbio.org", result);
         assertEquals(1, calls.get());
     }
 
@@ -72,7 +72,7 @@ public class SignInAdvancedDialogResolveUrlTest {
             calls.incrementAndGet();
             return true;
         });
-        assertEquals("localhost:8080", result);
+        assertEquals("http://localhost:8080", result);
         assertEquals(1, calls.get());
     }
 
@@ -95,7 +95,47 @@ public class SignInAdvancedDialogResolveUrlTest {
             calls.incrementAndGet();
             return true;
         });
-        assertEquals("127.0.0.1:9999", result);
+        assertEquals("http://127.0.0.1:9999", result);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void testNull_returnsNull() throws Exception {
+        assertNull(SignInAdvancedDialog.resolveServerUrl(null, candidate -> true));
+    }
+
+    @Test
+    public void testEmpty_returnsNull() throws Exception {
+        assertNull(SignInAdvancedDialog.resolveServerUrl("", candidate -> true));
+    }
+
+    @Test
+    public void testFtpScheme_returnsNull() throws Exception {
+        // Non-http scheme must be rejected without producing malformed candidates
+        assertNull(SignInAdvancedDialog.resolveServerUrl("ftp://example.com", candidate -> true));
+    }
+
+    @Test
+    public void testExplicitHttps_directInput_noRetry() throws Exception {
+        // Explicit https:// is treated as single candidate — no fallback attempted
+        AtomicInteger calls = new AtomicInteger(0);
+        String result = SignInAdvancedDialog.resolveServerUrl("https://ndex.example.com", candidate -> {
+            calls.incrementAndGet();
+            return true;
+        });
+        assertEquals("https://ndex.example.com", result);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void testCustomSubpath_explicit_http_noRetry() throws Exception {
+        // URL with explicit http and custom path is treated as single candidate
+        AtomicInteger calls = new AtomicInteger(0);
+        String result = SignInAdvancedDialog.resolveServerUrl("http://host/mypath", candidate -> {
+            calls.incrementAndGet();
+            return true;
+        });
+        assertEquals("http://host/mypath", result);
         assertEquals(1, calls.get());
     }
 }

@@ -1,5 +1,7 @@
 package org.cytoscape.cyndex2.internal.task;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.Frame;
 import java.io.IOException;
 import java.net.URI;
@@ -84,10 +86,8 @@ public class OpenDialogTaskFactory extends AbstractTaskFactory {
 									break;
 								default : break;
 							}	
-						} catch (ClientProtocolException e) {
-							e.printStackTrace();
 						} catch (IOException e) {
-							e.printStackTrace();
+							Logger.getLogger(OpenDialogTaskFactory.class.getName()).log(Level.WARNING, "Failed to fetch dialog parameters", e);
 						}
 					}
 				});

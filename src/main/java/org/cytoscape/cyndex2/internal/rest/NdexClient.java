@@ -105,8 +105,7 @@ public class NdexClient {
 			response.close();
 			client.close();
 		} catch (ParseException | IOException e) {
-			e.printStackTrace();
-			logger.error(e.getMessage());
+			logger.error(e.getMessage(), e);
 			throw errorBuilder.buildException(Status.INTERNAL_SERVER_ERROR, "Could not build network summary object.",
 					ErrorType.INTERNAL);
 		}

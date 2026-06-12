@@ -26,6 +26,8 @@
 
 package org.cytoscape.cyndex2.internal.ui.swing;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.Container;
 import java.awt.Frame;
 import java.beans.PropertyChangeEvent;
@@ -191,10 +193,8 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 			descriptionTextArea.setText(
 					isCollection ? "" : descriptionKey != null ? summary.props.get(descriptionKey).toString() : "");
 
-		} catch (ClientProtocolException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+			Logger.getLogger(ExportNetworkDialog.class.getName()).log(Level.WARNING, "Failed to populate export dialog", e);
 		}
 		// Server selectedServer = ServerManager.INSTANCE.getSelectedServer();
 

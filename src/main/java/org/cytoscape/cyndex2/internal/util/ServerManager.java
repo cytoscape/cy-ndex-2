@@ -214,7 +214,7 @@ public class ServerManager {
 		try {
 			Files.asCharSink( serverFile, Charsets.UTF_8).write(json);
 		} catch (IOException ex) {
-			ex.printStackTrace();
+			Logger.getLogger(ServerManager.class.getName()).log(Level.WARNING, "Failed to save selected server key", ex);
 		}
 
 	}
