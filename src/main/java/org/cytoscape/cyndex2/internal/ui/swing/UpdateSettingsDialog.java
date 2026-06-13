@@ -6,6 +6,8 @@
 package org.cytoscape.cyndex2.internal.ui.swing;
 
 import java.sql.Timestamp;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.UUID;
 
 import javax.swing.JDialog;
@@ -200,12 +202,9 @@ public class UpdateSettingsDialog extends javax.swing.JDialog {
 
 	private void applySettings() {
 		if (!changed || this.noInitialUUID && uuidTextField.getText().trim().length() == 0) {
-			System.out.println("Nothing changed. Leaving old UUID");
 			setVisible(false);
 			return;
 		}
-
-		System.out.println("UUID changed. Verifying.");
 		Timestamp serverTimestamp;
 		UUID verifiedUUID;
 		try {
@@ -221,7 +220,7 @@ public class UpdateSettingsDialog extends javax.swing.JDialog {
 			serverTimestamp = ns.getModificationTime();
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			Logger.getLogger(UpdateSettingsDialog.class.getName()).log(Level.WARNING, "UUID validation failed", e);
 			JOptionPane.showMessageDialog(this,
 					"<html><body>Error validating UUID: <br>" + e.getMessage() + "</html></body>", "Invalid UUID",
 					JOptionPane.WARNING_MESSAGE);

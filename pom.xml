@@ -7,7 +7,7 @@
 		<bundle.namespace>org.cytoscape.cyndex2</bundle.namespace>
 		<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
 		<maven-surefire-plugin.version>3.0.0-M3</maven-surefire-plugin.version>
-		<maven-bundle-plugin.version>4.1.0</maven-bundle-plugin.version>
+		<maven-bundle-plugin.version>5.1.9</maven-bundle-plugin.version>
 		
 		<junit.version>4.13.1</junit.version>
 		<jetty.version>9.3.9.v20160517</jetty.version>
@@ -19,7 +19,7 @@
 
 	<groupId>org.cytoscape</groupId>
 	<artifactId>cy-ndex-2</artifactId>
-	<version>3.7.0</version>
+	<version>3.7.2</version>
 	<packaging>bundle</packaging>
 	<name>CyNDEx-2</name>
 
@@ -33,7 +33,7 @@
 				<enabled>true</enabled>
 			</releases>
 			<name>Cytoscape Releases</name>
-			<url>http://nrnb-nexus.ucsd.edu/repository/cytoscape_releases/</url>
+			<url>https://nrnb-nexus.ucsd.edu/repository/cytoscape_releases/</url>
 		</repository>
 		<repository>
 			<id>cytoscape_snapshots</id>
@@ -44,7 +44,7 @@
 				<enabled>false</enabled>
 			</releases>
 			<name>Cytoscape Snapshots</name>
-			<url>http://nrnb-nexus.ucsd.edu/repository/cytoscape_snapshots/</url>
+			<url>https://nrnb-nexus.ucsd.edu/repository/cytoscape_snapshots/</url>
 		</repository>
 		
 	</repositories>
@@ -53,12 +53,12 @@
 		<repository>
 			<id>cytoscape_releases</id>
 			<name>Cytoscape Releases</name>
-			<url>http://nrnb-nexus.ucsd.edu/repository/cytoscape_releases/</url>
+			<url>https://nrnb-nexus.ucsd.edu/repository/cytoscape_releases/</url>
 		</repository>
 		<snapshotRepository>
 			<id>cytoscape_snapshots</id>
 			<name>Cytoscape Snapshots</name>
-			<url>http://nrnb-nexus.ucsd.edu/repository/cytoscape_snapshots/</url>
+			<url>https://nrnb-nexus.ucsd.edu/repository/cytoscape_snapshots/</url>
 		</snapshotRepository>
 	</distributionManagement>
 

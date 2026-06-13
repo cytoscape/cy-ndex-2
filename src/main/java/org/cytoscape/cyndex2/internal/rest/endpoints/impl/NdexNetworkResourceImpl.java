@@ -349,9 +349,10 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 				try {
 					Thread.sleep(3000);
 				} catch (InterruptedException e1) {
-					e1.printStackTrace();
+					logger.warn("Retry sleep interrupted", e1);
+					Thread.currentThread().interrupt();
 				}
-				e.printStackTrace();
+				logger.warn("updateNetworkInNdex attempt failed, retrying", e);
 
 			} finally {
 				retryCount++;
@@ -387,7 +388,6 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 			serverTimestamp = ns.getModificationTime();
 
 		} catch (Exception e) {
-			e.printStackTrace();
 			throw errorBuilder.buildException(Status.INTERNAL_SERVER_ERROR, "Error validating UUID: " + e.getMessage(),
 					 ErrorType.INTERNAL);
 			
@@ -480,7 +480,7 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 				lock.wait();
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.warn("invokeAndWait failed", e);
 		}
 	}
 

@@ -23,7 +23,6 @@ public class NDExNetworkManager {
 		}
 		
 		CyRow row = table.getRow(network.getSUID());
-		System.out.println("Saving UUID and timestamp for network: " + network.getSUID());
 		row.set(UUID_COLUMN, uuid.toString());
 		row.set(MODIFICATION_COLUMN, timestamp.toString());
 	}

@@ -1,5 +1,7 @@
 package org.cytoscape.cyndex2.internal.ui;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
@@ -156,10 +158,8 @@ public class MainToolBarAction extends AbstractCyAction {
 				public void actionPerformed(ActionEvent e) {	
 					 try {
 						Desktop.getDesktop().browse(new URI("https://www.ndexbio.org"));
-					} catch (IOException e1) {
-						e1.printStackTrace();
-					} catch (URISyntaxException e1) {
-						e1.printStackTrace();
+					} catch (IOException | URISyntaxException e1) {
+						Logger.getLogger(MainToolBarAction.class.getName()).log(Level.WARNING, "Failed to open NDEx Homepage", e1);
 					}
 				}
 			});
@@ -174,10 +174,8 @@ public class MainToolBarAction extends AbstractCyAction {
 				public void actionPerformed(ActionEvent e) {	
 					 try {
 						Desktop.getDesktop().browse(new URI("https://home.ndexbio.org/faq/"));
-					} catch (IOException e1) {
-						e1.printStackTrace();
-					} catch (URISyntaxException e1) {
-						e1.printStackTrace();
+					} catch (IOException | URISyntaxException e1) {
+						Logger.getLogger(MainToolBarAction.class.getName()).log(Level.WARNING, "Failed to open NDEx FAQ", e1);
 					}
 				}
 			});

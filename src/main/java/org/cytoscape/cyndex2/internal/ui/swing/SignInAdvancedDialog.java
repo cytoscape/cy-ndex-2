@@ -5,6 +5,8 @@
  */
 package org.cytoscape.cyndex2.internal.ui.swing;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
@@ -13,6 +15,7 @@ import javax.swing.event.DocumentListener;
 
 import org.cytoscape.cyndex2.internal.CyActivator;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
+import org.cytoscape.cyndex2.internal.util.UrlUtils;
 import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.ndexbio.model.object.NdexStatus;
 import org.ndexbio.rest.client.NdexRestClient;
@@ -170,40 +173,62 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 		setVisible(false);
 	}// GEN-LAST:event_cancelActionPerformed
 
+	@FunctionalInterface
+	public interface CandidateVerifier {
+		boolean test(String candidate) throws Exception;
+	}
+
+	public static String resolveServerUrl(String trimmedURL, CandidateVerifier verifier) {
+		if (trimmedURL == null || trimmedURL.isEmpty()) return null;
+		boolean hasProtocol = UrlUtils.hasHttpScheme(trimmedURL);
+		// Reject non-http(s) schemes (e.g. ftp://) rather than producing malformed candidates
+		if (!hasProtocol && trimmedURL.contains("://")) return null;
+		String[] candidates = hasProtocol
+				? new String[]{ trimmedURL }
+				: new String[]{ "http://" + trimmedURL, "https://" + trimmedURL };
+		for (String candidate : candidates) {
+			try {
+				if (verifier.test(candidate)) return candidate;
+			} catch (Exception e) {
+				// try next candidate
+			}
+		}
+		return null;
+	}
+
 	private void applySettings() {
 		if (!changed || serverURLTextField.getText().trim().length() == 0) {
-			System.out.println("Nothing changed. Leaving old server URL");
 			setVisible(false);
 			return;
 		}
 
-		System.out.println("Server URL changed. Verifying.");
-		
-		String verifiedURL;
-		try {
-			final String trimmedURL = serverURLTextField.getText().trim();
-			final String baseRoute = ServerManager.getBaseRoute(trimmedURL);
-			
-			final NdexRestClient nc = new NdexRestClient(
-					baseRoute);
-			nc.setAdditionalUserAgent(UserAgentUtil.getUserAgent());
-			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
-			
-			final NdexStatus status = mal.getServerStatus();
-			verifiedURL = status.getProperties().size() > 0 ? trimmedURL : null;
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this,
-					"<html><body>Error validating NDEx Server URL: <br>" + e.getMessage() + "</html></body>", "Invalid URL",
-					JOptionPane.WARNING_MESSAGE);
-			verifiedURL = null;
-		}
+		final String trimmedURL = serverURLTextField.getText().trim();
+
+		final Exception[] lastError = { null };
+		String verifiedURL = resolveServerUrl(trimmedURL, candidate -> {
+			try {
+				final String baseRoute = ServerManager.getBaseRoute(candidate);
+				final NdexRestClient nc = new NdexRestClient(baseRoute);
+				nc.setAdditionalUserAgent(UserAgentUtil.getUserAgent());
+				final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
+				final NdexStatus status = mal.getServerStatus();
+				return status.getProperties().size() > 0;
+			} catch (Exception e) {
+				lastError[0] = e;
+				throw e;
+			}
+		});
 
 		if (verifiedURL != null) {
-			
 			serverURL = verifiedURL;
 			setVisible(false);
+		} else {
+			if (lastError[0] != null)
+				Logger.getLogger(SignInAdvancedDialog.class.getName()).log(Level.WARNING, "Server URL validation failed", lastError[0]);
+			JOptionPane.showMessageDialog(this,
+					"<html><body>Error validating NDEx Server URL: <br>"
+					+ (lastError[0] != null ? lastError[0].getMessage() : "Server did not respond correctly")
+					+ "</html></body>", "Invalid URL", JOptionPane.WARNING_MESSAGE);
 		}
 	}
 

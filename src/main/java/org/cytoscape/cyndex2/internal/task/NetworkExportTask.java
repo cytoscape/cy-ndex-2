@@ -40,6 +40,8 @@ import org.cytoscape.model.subnetwork.CyRootNetwork;
 import org.cytoscape.model.subnetwork.CySubNetwork;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.cytoscape.work.TaskMonitor;
 import org.ndexbio.model.exceptions.NdexException;
 import org.ndexbio.model.object.network.NetworkSummary;
@@ -77,10 +79,10 @@ public class NetworkExportTask extends AbstractTask implements ObservableTask{
 		try {
 			cxStream.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			Logger.getLogger(NetworkExportTask.class.getName()).log(Level.WARNING, "Failed to close CX stream on cancel", e);
 		}
 	}
-	
+
 	@Override
 	public void run(TaskMonitor taskMonitor) throws NetworkExportException, InvocationTargetException, InterruptedException, IOException {
 		networkUUID = null;
@@ -129,13 +131,10 @@ public class NetworkExportTask extends AbstractTask implements ObservableTask{
 				NDExNetworkManager.updateModificationTimeStamp(referenceNetwork, networkSummary.getModificationTime());
 			}
 		} catch (NetworkUpdateException e) {
-			e.printStackTrace();
 			throw new NetworkExportException("Only networks imported from CyNDEx2 can be updated. Error: " + e.getMessage());
 		} catch (IOException e) {
-			e.printStackTrace();
 			throw new NetworkExportException("Failed to create CX stream for network. Error: " + e.getMessage());
 		} catch (Exception e) {
-			e.printStackTrace();
 			throw new NetworkExportException("An error occurred loading the network to NDEx. Error: " + e.getMessage());
 		} finally {
 

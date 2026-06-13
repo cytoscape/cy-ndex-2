@@ -64,6 +64,8 @@ import org.cytoscape.cyndex2.internal.util.CxPreferences;
 import org.cytoscape.cyndex2.internal.util.ErrorMessage;
 import org.cytoscape.cyndex2.internal.util.IconUtil;
 import org.cytoscape.cyndex2.internal.util.Server;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.util.swing.IconManager;
 import org.cytoscape.util.swing.TextIcon;
@@ -86,6 +88,8 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 	*/
 	private static final long serialVersionUID = 1L;
 	private List<NetworkSummary> networkSummaries;
+
+	private static final int SEARCH_MAX_RESULTS = 200;
 
 	static final Font font = IconUtil.getAppFont(32f);
 	static final int ICON_SIZE = 32;
@@ -160,7 +164,7 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 					final NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
 					success = selectedServer.check(mal);
 				} catch (IOException | NdexException e1) {
-					e1.printStackTrace();
+					Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Server check failed", e1);
 					success = false;
 				}
 				if (success) {
@@ -195,17 +199,13 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 					 * -1; }
 					 */
 					catch (RuntimeException ex2) {
-						JOptionPane.showMessageDialog(null,
+						Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Network import failed", ex2);
+					JOptionPane.showMessageDialog(null,
 								"This network can't be imported to cytoscape. Cause: " + ex2.getMessage(), "Error",
 								JOptionPane.ERROR_MESSAGE);
-						ex2.printStackTrace();
 						return -1;
-					} catch (ClientProtocolException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
 					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Network import HTTP request failed", e);
 					}
 				} else {
 					JOptionPane.showMessageDialog(null, ErrorMessage.failedServerCommunication, "Error",
@@ -224,21 +224,20 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 
 	private void prepComponents() {
 		this.getRootPane().setDefaultButton(search);
-		
+
 		searchField.setText(loadParameters.searchTerm);
 		setSearchEnabled(!loadParameters.userNetworksOnly);
-		
+
 		final Server selectedServer = ServerManager.INSTANCE.getServer();
 		NdexRestClientModelAccessLayer mal;
+		String pendingError = null;
+
 		try {
 			mal = selectedServer.getModelAccessLayer();
 		} catch (IOException | NdexException e) {
 			mal = null;
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this,
-					ErrorMessage.failedServerCommunication + "\n\nError Message: " + e.getMessage(), "Error",
-					JOptionPane.ERROR_MESSAGE);
-
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Failed to get model access layer", e);
+			pendingError = ErrorMessage.failedServerCommunication + "\n\nError Message: " + e.getMessage();
 		}
 		if (selectedServer.getUsername() != null && !selectedServer.getUsername().isEmpty()) {
 			administeredByMe.setVisible(true);
@@ -248,12 +247,9 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 					selectedServer.check(mal);
 					administeredByMe.setVisible(true);
 				} catch (IOException e) {
-					e.printStackTrace();
-					JOptionPane.showMessageDialog(this,
-							ErrorMessage.failedServerCommunication + "\n\nError Message: " + e.getMessage(), "Error",
-							JOptionPane.ERROR_MESSAGE);
-
-					// return;
+					Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Server check failed", e);
+					if (pendingError == null)
+						pendingError = ErrorMessage.failedServerCommunication + "\n\nError Message: " + e.getMessage();
 				}
 			} else {
 				administeredByMe.setVisible(false);
@@ -267,33 +263,37 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 						networkSummaries = mal != null ? mal.getMyNetworks() : List.of();
 					} else {
 						networkSummaries = mal != null
-								? mal.findNetworks(loadParameters.searchTerm, null, null, true, 0, 400).getNetworks()
+								? mal.findNetworks(loadParameters.searchTerm, null, null, true, 0, SEARCH_MAX_RESULTS).getNetworks()
 								: List.of();
 					}
 				} catch (IOException | NdexException ex) {
-					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this,
-							ErrorMessage.failedServerCommunication + "\n\nError Message: " + ex.getMessage(), "Error",
-							JOptionPane.ERROR_MESSAGE);
+					Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Failed to fetch networks", ex);
+					if (pendingError == null)
+						pendingError = ErrorMessage.failedServerCommunication + "\n\nError Message: " + ex.getMessage();
 					networkSummaries = List.of();
-					// this.setVisible(false);
-					// return;
 				}
-
 			} else {
-				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "Error",
-						JOptionPane.ERROR_MESSAGE);
+				if (pendingError == null)
+					pendingError = ErrorMessage.failedServerCommunication;
 				networkSummaries = List.of();
 			}
 		} catch (HeadlessException | IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this,
-					ErrorMessage.failedServerCommunication + "\n\nError Message: " + e.getMessage(), "Error",
-					JOptionPane.ERROR_MESSAGE);
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "prepComponents failed", e);
+			if (pendingError == null)
+				pendingError = ErrorMessage.failedServerCommunication + "\n\nError Message: " + e.getMessage();
 			networkSummaries = List.of();
 		}
+
 		showSearchResults();
+
+		if (pendingError != null) {
+			final String msg = pendingError;
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				if (FindNetworksDialog.this.isDisplayable())
+					JOptionPane.showMessageDialog(FindNetworksDialog.this, msg, "Error",
+							JOptionPane.ERROR_MESSAGE);
+			});
+		}
 	}
 
 	private JTable getResultsTable() {
@@ -312,7 +312,7 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 										: "<html>" + networkSummary.getDescription() + "</html>";
 								jcomp.setToolTipText(toolTip);
 							} catch (Exception e) {
-								System.out.println("Ignored table renderer error while making tool tip");
+								// ignored — tooltip is best-effort
 							}
 						}
 					}
@@ -486,27 +486,37 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 			NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
 
 			if (selectedServer.check(mal)) {
-
 				try {
 					networkSummaries = mal.getMyNetworks();
-					showSearchResults();
+					javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 				} catch (IOException | NdexException ex) {
-					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					networkSummaries = List.of();
+					javax.swing.SwingUtilities.invokeLater(() -> {
+						showSearchResults();
+						JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					});
 					return;
 				}
-
 			} else {
-				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-						JOptionPane.ERROR_MESSAGE);
-
+				networkSummaries = List.of();
+				javax.swing.SwingUtilities.invokeLater(() -> {
+					showSearchResults();
+					JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "Error",
+							JOptionPane.ERROR_MESSAGE);
+				});
 			}
 		} catch (HeadlessException | IOException | NdexException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-					JOptionPane.ERROR_MESSAGE);
-
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "getMyNetworks failed", e);
+			networkSummaries = List.of();
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				showSearchResults();
+				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "Error",
+						JOptionPane.ERROR_MESSAGE);
+			});
+		} catch (Exception e) {
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "getMyNetworks unexpected exception", e);
+			networkSummaries = List.of();
+			javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 		}
 	}
 
@@ -529,25 +539,38 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 				try {
 					if (administeredByMe.isSelected()) {
 						networkSummaries = mal.getMyNetworks();
-					} else
-						networkSummaries = mal.findNetworks(searchText, null, null, true, 0, 10000).getNetworks();
+					} else {
+						networkSummaries = mal.findNetworks(searchText, null, null, true, 0, SEARCH_MAX_RESULTS).getNetworks();
+					}
 				} catch (IOException | NdexException ex) {
-					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					networkSummaries = List.of();
+					javax.swing.SwingUtilities.invokeLater(() -> {
+						showSearchResults();
+						JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					});
 					return;
 				}
-				showSearchResults();
+				javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 			} else {
-				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-						JOptionPane.ERROR_MESSAGE);
-
+				networkSummaries = List.of();
+				javax.swing.SwingUtilities.invokeLater(() -> {
+					showSearchResults();
+					JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "Error",
+							JOptionPane.ERROR_MESSAGE);
+				});
 			}
 		} catch (HeadlessException | IOException | NdexException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "ErrorY",
-					JOptionPane.ERROR_MESSAGE);
-
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "search failed", e);
+			networkSummaries = List.of();
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				showSearchResults();
+				JOptionPane.showMessageDialog(this, ErrorMessage.failedServerCommunication, "Error",
+						JOptionPane.ERROR_MESSAGE);
+			});
+		} catch (Exception e) {
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "search unexpected exception", e);
+			networkSummaries = List.of();
+			javax.swing.SwingUtilities.invokeLater(this::showSearchResults);
 		}
 	}
 

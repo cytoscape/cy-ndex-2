@@ -20,6 +20,7 @@ import javax.swing.JOptionPane;
 import javax.swing.KeyStroke;
 
 import org.cytoscape.cyndex2.internal.CyServiceModule;
+import org.cytoscape.cyndex2.internal.rest.NdexAdminStatusService;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.util.swing.IconManager;
 
@@ -40,13 +41,22 @@ public class SignInDialog extends javax.swing.JDialog {
 
 	private String serverURL = "www.ndexbio.org";
 
+	private SignInLinkAreaController controller;
+
 	/**
 	 * Creates new form NewJDialog
 	 */
 	public SignInDialog(JDialog parent) {
+		this(parent, CyServiceModule.getAdminStatusService());
+	}
+
+	SignInDialog(JDialog parent, NdexAdminStatusService service) {
 		super(parent, true);
 		initComponents();
 		this.getRootPane().setDefaultButton(save);
+		this.controller = new SignInLinkAreaController(
+				forgotPasswordLabel, signUpLabel, needAccountLabel, needAccountLabel1, service);
+		controller.refresh(serverURL);
 	}
 
 	/**
@@ -220,6 +230,7 @@ public class SignInDialog extends javax.swing.JDialog {
 
 		if (advancedSettingsDialog.isChanged()) {
 			serverURL = advancedSettingsDialog.getNewServerURL();
+			refreshLinkArea();
 		}
 		advancedSettingsDialog.dispose();
 	}// GEN-LAST:event_updateSettingsButtonActionPerformed
@@ -234,43 +245,28 @@ public class SignInDialog extends javax.swing.JDialog {
 
 
 	private void forgotPasswordLabelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_forgotPasswordLabelMouseClicked
-
-		 try {
-	            Desktop.getDesktop().browse(new URI(ServerManager.addHttpsProtocol(serverURL) + "/viewer/recoverPassword"));
-			} catch (URISyntaxException | IOException ex) {
-				Logger.getLogger(SignInDialog.class.getName()).log(Level.SEVERE, null, ex);
-	        }
-		
-	/*	try {
-			AccountBrowserPrompt dialog;
-			dialog = new AccountBrowserPrompt(null, true, "Password Recovery",
-					new URI(ServerManager.addHttpsProtocol(serverURL) + "/viewer/recoverPassword"));
-			dialog.setLocationRelativeTo(this);
-			dialog.setVisible(true);
-		} catch (URISyntaxException ex) {
+		String url = controller.getResetUrl();
+		if (url == null) return;
+		try {
+			Desktop.getDesktop().browse(new URI(url));
+		} catch (URISyntaxException | IOException ex) {
 			Logger.getLogger(SignInDialog.class.getName()).log(Level.SEVERE, null, ex);
-		} */
-
+		}
 	}// GEN-LAST:event_forgotPasswordLabelMouseClicked
 
 	private void signUpLabelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_signUpLabelMouseClicked
-
-		 try {
-	            Desktop.getDesktop().browse(new URI(ServerManager.addHttpsProtocol(serverURL) + "/viewer/signup"));
-	        } catch (IOException | URISyntaxException ex) {
-				Logger.getLogger(SignInDialog.class.getName()).log(Level.SEVERE, null, ex);
-	        }
-		
-/*		try {
-			AccountBrowserPrompt dialog;
-			dialog = new AccountBrowserPrompt(null, true, "Sign-Up", new URI(ServerManager.addHttpsProtocol(serverURL) + "/viewer/signup"));
-			dialog.setLocationRelativeTo(this);
-			dialog.setVisible(true);
-		} catch (URISyntaxException ex) {
+		String url = controller.getRegisterUrl() != null ? controller.getRegisterUrl() : controller.getSwaggerUrl();
+		if (url == null) return;
+		try {
+			Desktop.getDesktop().browse(new URI(url));
+		} catch (IOException | URISyntaxException ex) {
 			Logger.getLogger(SignInDialog.class.getName()).log(Level.SEVERE, null, ex);
-		} */
-
+		}
 	}// GEN-LAST:event_signUpLabelMouseClicked
+
+	private void refreshLinkArea() {
+		controller.refresh(serverURL);
+	}
 
 	private void signInToServer() {
 		final String usernameText = this.username.getText();
@@ -290,7 +286,7 @@ public class SignInDialog extends javax.swing.JDialog {
 			ServerManager.INSTANCE.addServer(userName, passwordText, serverURL);
 			setVisible(false);
 		} catch (Exception ex) {
-			ex.printStackTrace();
+			Logger.getLogger(SignInDialog.class.getName()).log(Level.WARNING, "Failed to add server", ex);
 			JOptionPane.showMessageDialog(this, ex.getMessage(), "Error Adding Server", JOptionPane.ERROR_MESSAGE);
 		}
 	}

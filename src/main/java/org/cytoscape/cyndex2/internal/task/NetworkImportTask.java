@@ -43,6 +43,8 @@ import org.cytoscape.io.write.CyWriter;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.model.subnetwork.CySubNetwork;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.TaskIterator;
@@ -113,11 +115,11 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 							Method setCreateViewMethod = cxReader.getMethod("setCreateView", Boolean.class);
 							setCreateViewMethod.invoke(task, createView);
 						} catch(java.lang.NoSuchMethodException e) {
-							System.err.println("Unable to explicitly set view creation. Make sure a current version of the CX Support app is installed.");
+							Logger.getLogger(NetworkImportTask.class.getName()).warning("Unable to explicitly set view creation. Make sure a current version of the CX Support app is installed.");
 						}
 						task.run(new HeadlessTaskMonitor());
 					} catch (Exception e) {
-						e.printStackTrace();
+						Logger.getLogger(NetworkImportTask.class.getName()).log(Level.WARNING, "Network import task failed", e);
 					}
 				}
 			});
@@ -152,7 +154,6 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 		} catch (IOException ex) {
 			throw new NetworkImportException("Failed to parse JSON from NDEx source.");
 		} catch (RuntimeException ex2) {
-			ex2.printStackTrace();
 			throw new NetworkImportException(ex2.getMessage());
 		} catch (NdexException e) {
 			throw new NetworkImportException("Unable to read network from NDEx: " + e.getMessage());
@@ -169,7 +170,7 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 		try {
 			cxStream.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			Logger.getLogger(NetworkImportTask.class.getName()).log(Level.WARNING, "Failed to close CX stream on cancel", e);
 		}
 	}
 

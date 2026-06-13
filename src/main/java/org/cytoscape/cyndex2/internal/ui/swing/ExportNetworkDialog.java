@@ -26,6 +26,8 @@
 
 package org.cytoscape.cyndex2.internal.ui.swing;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.Container;
 import java.awt.Frame;
 import java.beans.PropertyChangeEvent;
@@ -191,10 +193,8 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 			descriptionTextArea.setText(
 					isCollection ? "" : descriptionKey != null ? summary.props.get(descriptionKey).toString() : "");
 
-		} catch (ClientProtocolException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+			Logger.getLogger(ExportNetworkDialog.class.getName()).log(Level.WARNING, "Failed to populate export dialog", e);
 		}
 		// Server selectedServer = ServerManager.INSTANCE.getSelectedServer();
 
@@ -571,9 +571,6 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 			metadata.put("reference", referenceField.getText());
 			metadata.put("description", descriptionTextArea.getText());
 
-			System.out.println("REST_URI: " + REST_URI);
-			System.out.println("url " + selectedServer.getUrl());
-
 			NDExSaveParameters saveParams = new NDExSaveParameters(selectedServer.getUsername(),
 					selectedServer.getPassword(), selectedServer.getUrl(), metadata, false);
 			final ObjectMapper objectMapper = new ObjectMapper();
@@ -604,15 +601,8 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 							JOptionPane.ERROR_MESSAGE);
 				}
 
-			} catch (UnsupportedEncodingException | JsonProcessingException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (ClientProtocolException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				// upload failed — dialog already shown for non-200 status; other errors fall through silently
 			}
 			return 1;
 		});
@@ -628,9 +618,6 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 
 	private void updateCheckboxActionPerformed(java.awt.event.ActionEvent evt)// GEN-FIRST:event_updateCheckboxActionPerformed
 	{// GEN-HEADEREND:event_updateCheckboxActionPerformed
-		// TODO add your handling code here:
-		System.out.println("update checked.");
-
 	}// GEN-LAST:event_updateCheckboxActionPerformed
 
 	@Override
@@ -653,7 +640,6 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 			updateErrorLabel.setText("Update not possible. Please sign in to a valid NDEx account");
 		} else {
 			try {
-				System.out.println("Checking if update is possible for suid: " + saveParameters.suid);
 				final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
 						selectedServer.getUrl(), UserAgentUtil.getUserAgent());
 				final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
@@ -662,12 +648,8 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 				updateErrorLabel.setText(
 						updatePossible ? "Update the existing network in NDEx" : "Update not possible, unknown error.");
 			} catch (Exception e) {
-				System.out.println("Update is not possible: " + e.getMessage());
 				updateErrorLabel.setText(htmlWrap(e.getMessage()));
-
-				e.printStackTrace();
 				updatePossible = false;
-
 			}
 		}
 		updateCheckbox.setSelected(false);
