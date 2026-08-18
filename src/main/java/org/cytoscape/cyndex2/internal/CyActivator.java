@@ -7,6 +7,10 @@ import static org.cytoscape.work.ServiceProperties.IN_NETWORK_PANEL_CONTEXT_MENU
 import static org.cytoscape.work.ServiceProperties.MENU_GRAVITY;
 import static org.cytoscape.work.ServiceProperties.PREFERRED_MENU;
 import static org.cytoscape.work.ServiceProperties.TITLE;
+import static org.cytoscape.work.ServiceProperties.COMMAND;
+import static org.cytoscape.work.ServiceProperties.COMMAND_NAMESPACE;
+import static org.cytoscape.work.ServiceProperties.COMMAND_DESCRIPTION;
+import static org.cytoscape.work.ServiceProperties.COMMAND_LONG_DESCRIPTION;
 
 import java.io.File;
 import java.util.Dictionary;
@@ -31,6 +35,9 @@ import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.task.OpenBrowseTaskFactory;
 import org.cytoscape.cyndex2.internal.task.OpenSaveCollectionTaskFactory;
 import org.cytoscape.cyndex2.internal.task.OpenSaveTaskFactory;
+import org.cytoscape.cyndex2.internal.task.NDExUploadNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.NDExDownloadNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.NDExSearchNetworksCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.ui.ImportUserNetworkFromNDExTaskFactory;
 import org.cytoscape.cyndex2.internal.ui.ImportNetworkFromNDExTaskFactory;
 import org.cytoscape.cyndex2.internal.ui.MainToolBarAction;
@@ -212,6 +219,38 @@ public class CyActivator extends AbstractCyActivator {
 
 		registerService(bc, saveNetworkToNDExContextMenuTaskFactory, NetworkCollectionTaskFactory.class,
 				saveNetworkToNDExContextMenuProps);
+
+		// Register desktop commands for NDEx network actions (discoverable by MCP tooling)
+		final NDExUploadNetworkCommandTaskFactory uploadCommandFactory = new NDExUploadNetworkCommandTaskFactory(appManager);
+		final Properties uploadCommandProps = new Properties();
+		uploadCommandProps.setProperty(COMMAND_NAMESPACE, "ndex");
+		uploadCommandProps.setProperty(COMMAND, "upload network");
+		uploadCommandProps.setProperty(COMMAND_DESCRIPTION, "Upload the current network to NDEx.");
+		uploadCommandProps.setProperty(COMMAND_LONG_DESCRIPTION,
+				"Uploads the current network in Cytoscape to NDEx. "
+				+ "Optionally specify a user profile, network visibility (public/private), "
+				+ "and a network UUID to overwrite an existing network.");
+		registerService(bc, uploadCommandFactory, TaskFactory.class, uploadCommandProps);
+
+		final NDExDownloadNetworkCommandTaskFactory downloadCommandFactory = new NDExDownloadNetworkCommandTaskFactory();
+		final Properties downloadCommandProps = new Properties();
+		downloadCommandProps.setProperty(COMMAND_NAMESPACE, "ndex");
+		downloadCommandProps.setProperty(COMMAND, "download network");
+		downloadCommandProps.setProperty(COMMAND_DESCRIPTION, "Download a network from NDEx by UUID.");
+		downloadCommandProps.setProperty(COMMAND_LONG_DESCRIPTION,
+				"Downloads a network from NDEx using its UUID and creates a new network view in Cytoscape. "
+				+ "Optionally specify a user profile for authenticated access to private networks.");
+		registerService(bc, downloadCommandFactory, TaskFactory.class, downloadCommandProps);
+
+		final NDExSearchNetworksCommandTaskFactory searchCommandFactory = new NDExSearchNetworksCommandTaskFactory();
+		final Properties searchCommandProps = new Properties();
+		searchCommandProps.setProperty(COMMAND_NAMESPACE, "ndex");
+		searchCommandProps.setProperty(COMMAND, "search networks");
+		searchCommandProps.setProperty(COMMAND_DESCRIPTION, "Search for networks on NDEx.");
+		searchCommandProps.setProperty(COMMAND_LONG_DESCRIPTION,
+				"Searches NDEx for networks matching the given search term. "
+				+ "Optionally filter to the authenticated user's own networks and specify a user profile.");
+		registerService(bc, searchCommandFactory, TaskFactory.class, searchCommandProps);
 
 	}
 
