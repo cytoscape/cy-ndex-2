@@ -3,19 +3,25 @@
 The [NDEx](http://www.ndexbio.org/) client App for Cytoscape
 
 ## Introduction
-This is an [Electron](https://electron.atom.io/)-based hybrid App for Cytoscape.  You can search, import, and save NDEx networks from Cytoscape.
+This is a hybrid App for Cytoscape.  You can search, import, and save NDEx networks from Cytoscape.
+
+> **Note:** Versions 2.x of CyNDEx-2 were built as an [Electron](https://electron.atom.io/)-based application and used [JxBrowser](http://www.teamdev.com/jxbrowser) to render the search window. Starting with version 3.0, Electron and JxBrowser were removed. If you are using CyNDEx-2 v2.x, see the [v2.x uninstall instructions](#uninstall-cyndex-2-v2x-electron-based) below and note that JxBrowser is a proprietary software governed by the [JxBrowser Product License Agreement](http://www.teamdev.com/jxbrowser-licence-agreement).
 
 # For Users
 
 ## How to Install
 Just like other Cytoscape apps, you can install this from the [Cytoscape App Store](http://apps.cytoscape.org/) or directly from the file.  All of the required files will be installed automatically.
 
-### Note: JXBrowser 
-
-Once you install the app from the App Store, the CyNDEx2 searchbox will be available in the query dropdown (Cytoscape 3.6+).    JXBrowser is used to open the search window, and can cause issues when the app is updated or uninstalled.  If JXBrowser fails to start, the search entry field will be disabled and a restart is required.
-
 ### Uninstall CyNDEx-2
 To uninstall CyNDEx-2 completely from your machine, you need to follow these steps:
+
+1. Uninstall the app from App menu
+1. Open _CytoscapeConfiguration_ directory
+1. Remove the following files/directories:
+    * _cyndex-2_ directory
+
+### Uninstall CyNDEx-2 v2.x (Electron-based)
+If you are uninstalling a v2.x release, additional Electron and JxBrowser artifacts need to be removed:
 
 1. Uninstall the app from App menu
 1. Open _CytoscapeConfiguration_ directory
@@ -25,7 +31,7 @@ To uninstall CyNDEx-2 completely from your machine, you need to follow these ste
     * _ndex-installed-2.x.x.txt_ file
 1.
     * Mac users - remove ~/Library/Application Support/CyNDEx-2 directory
-    * Windows user - remove %AppData%/Roaming/CyNDEx-2 directory 
+    * Windows users - remove %AppData%/Roaming/CyNDEx-2 directory
 
 
 
@@ -45,24 +51,16 @@ The REST endpoints are provided via CyREST 3.5.0 or newer.  From CyREST version 
 (TBD)
 ## How to Build the App
 
-This application consists of the three parts:
+This application consists of two parts:
 
 1. NDEx Client for Java
 1. Cytoscape Java App
-1. Electron dialog
-1. JavaScript front-end
 
 ### NDEx Client for Java
 This is an official Java client maintained by the NDEx team.
 
 ### Cytoscape Java App
 This is the code for the actual Cytoscape app.
-
-
-This application consists of two parts:
-
-1. Electron web application
-1. Cytoscape app written in Java
 
 ```bash
 mvn clean install
@@ -203,8 +201,3 @@ Update the existing NDEx entry.
 
 ## License
 MIT
-
-## Components
-CyNDEx2 uses JxBrowser http://www.teamdev.com/jxbrowser, which is a proprietary software. The use of JxBrowser is governed by JxBrowser Product License Agreement http://www.teamdev.com/jxbrowser-licence-agreement. If you would like to use JxBrowser in your development, please contact TeamDev.
-
-(Please don't remove this notice)
