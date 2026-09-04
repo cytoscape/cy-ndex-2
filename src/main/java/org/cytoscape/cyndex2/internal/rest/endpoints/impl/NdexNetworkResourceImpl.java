@@ -17,7 +17,6 @@ import javax.ws.rs.core.Response.Status;
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.ci.CIWrapping;
 import org.cytoscape.ci.model.CIError;
-import org.cytoscape.cyndex2.internal.CxTaskFactoryManager;
 import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.rest.NdexClient;
 import org.cytoscape.cyndex2.internal.rest.SimpleNetworkSummary;
@@ -38,7 +37,8 @@ import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.cyndex2.internal.util.UpdateUtil;
 import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.io.read.AbstractCyNetworkReader;
-import org.cytoscape.io.read.InputStreamTaskFactory;
+import org.cytoscape.io.read.CyNetworkReader;
+import org.cytoscape.io.read.CyNetworkReaderManager;
 import org.cytoscape.model.CyColumn;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyNetworkManager;
@@ -70,8 +70,11 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
 	private final ErrorBuilder errorBuilder;
 
+	private final CyNetworkReaderManager networkReaderManager;
+
 	public NdexNetworkResourceImpl(final NdexClient client, CyApplicationManager appManager,
-			CyNetworkManager networkManager, CIServiceManager ciServiceTracker) {
+			CyNetworkManager networkManager, CIServiceManager ciServiceTracker,
+			CyNetworkReaderManager networkReaderManager) {
 
 		this.client = client;
 		this.ciServiceManager = ciServiceTracker;
@@ -80,8 +83,7 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
 		this.networkManager = networkManager;
 		this.appManager = appManager;
-
-		// this.tfManager = tfManager;
+		this.networkReaderManager = networkReaderManager;
 	}
 
 	private CyNetwork getCurrentNetwork() {
@@ -423,11 +425,16 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 	@CIWrapping
 	public CINdexBaseResponse createNetworkFromCx(final InputStream in) {
 
-		InputStreamTaskFactory taskFactory = CxTaskFactoryManager.INSTANCE.getCxReaderFactory();
-		TaskIterator iter = taskFactory.createTaskIterator(in, null);
-
-		// Get task to get SUID
-		AbstractCyNetworkReader reader = (AbstractCyNetworkReader) iter.next();
+		// The caller chooses the CX version here, so let the platform negotiate a reader from the
+		// stream's own header rather than pinning a format: both CX1 and CX2 payloads are accepted.
+		CyNetworkReader negotiated = networkReaderManager.getReader(in, "network.cx");
+		if (negotiated == null) {
+			throw errorBuilder.buildException(Status.BAD_REQUEST,
+					"Unable to read the posted stream as CX. Expected a CX1 or CX2 network document.",
+					ErrorType.INVALID_PARAMETERS);
+		}
+		AbstractCyNetworkReader reader = (AbstractCyNetworkReader) negotiated;
+		TaskIterator iter = new TaskIterator(reader);
 		reader.setRootNetworkList(new ListSingleSelection<String>());
 		iter.append(reader);
 

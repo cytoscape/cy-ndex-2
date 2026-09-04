@@ -28,11 +28,13 @@ package org.cytoscape.cyndex2.internal.task;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.UUID;
 
 import javax.swing.SwingUtilities;
 
+import org.cytoscape.cyndex2.internal.CxFormat;
 import org.cytoscape.cyndex2.internal.CxTaskFactoryManager;
 import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.util.HeadlessTaskMonitor;
@@ -62,19 +64,35 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 	private String accessKey = null;
 	protected InputStream cxStream;
 	private Boolean createView = null;
+	private final CxFormat format;
+	private final CxTaskFactoryManager cxFactories;
+	private final CyNetworkManager networkManager;
 
 	public NetworkImportTask(final NdexRestClientModelAccessLayer mal, UUID uuid, String accessKey, final Boolean createView)
 			throws IOException, NdexException {
+		this(mal, uuid, accessKey, createView, CxFormat.CX1);
+	}
+
+	public NetworkImportTask(final NdexRestClientModelAccessLayer mal, UUID uuid, String accessKey, final Boolean createView,
+			final CxFormat format) throws IOException, NdexException {
+		this(mal, uuid, accessKey, createView, format, CxTaskFactoryManager.INSTANCE,
+				CyServiceModule.getService(CyNetworkManager.class));
+	}
+
+	/** For tests: inject the CX factories and network manager rather than resolving them from singletons. */
+	NetworkImportTask(final NdexRestClientModelAccessLayer mal, UUID uuid, String accessKey, final Boolean createView,
+			final CxFormat format, final CxTaskFactoryManager cxFactories, final CyNetworkManager networkManager)
+			throws IOException, NdexException {
 		super();
 		this.uuid = uuid;
-		/*
-		
-		*/
 		this.mal = mal;
 		networkSummary = mal.getNetworkSummaryById(uuid, accessKey);
 		this.accessKey = accessKey;
 		cxStream = null;
 		this.createView = createView;
+		this.format = format;
+		this.cxFactories = cxFactories;
+		this.networkManager = networkManager;
 	}
 
 	@Override
@@ -88,41 +106,38 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 			taskMonitor.setStatusMessage("Fetching network from NDEx");
 			if (cxStream == null) {
 				UUID id = networkSummary.getExternalId();
-				if (accessKey == null)
-					cxStream = mal.getNetworkAsCXStream(id);
-				else
-					cxStream = mal.getNetworkAsCXStream(id, accessKey);
+				if (format == CxFormat.CX2) {
+					cxStream = (accessKey == null) ? mal.getNetworkAsCX2Stream(id)
+							: mal.getNetworkAsCX2Stream(id, accessKey);
+				} else {
+					cxStream = (accessKey == null) ? mal.getNetworkAsCXStream(id)
+							: mal.getNetworkAsCXStream(id, accessKey);
+				}
 			}
 			if (cxStream == null) {
 				throw new NdexException("Unable to get network as CX stream");
 			}
 			taskMonitor.setProgress(.4);
 			
-			final InputStreamTaskFactory cxReaderFactory = 
-					CxTaskFactoryManager.INSTANCE.getCxReaderFactory();
+			final InputStreamTaskFactory cxReaderFactory = cxFactories.getReaderFactory(format);
+			if (cxReaderFactory == null) {
+				throw new NetworkImportException("No " + format + " reader is available. Install or update the "
+						+ "CX Support app to version " + format.getRequiredCxSupportVersion() + " or newer.");
+			}
 			
 			taskMonitor.setStatusMessage("Importing network with CX Reader");
 			TaskIterator ti = cxReaderFactory.createTaskIterator(cxStream, null);
 			AbstractCyNetworkReader task = (AbstractCyNetworkReader) ti.next();
-			SwingUtilities.invokeAndWait(new Runnable() {
-				
-				@Override
-				public void run() {
-					try {
-						final Class<? extends AbstractCyNetworkReader> cxReader = task.getClass();
-						
-						try {
-							Method setCreateViewMethod = cxReader.getMethod("setCreateView", Boolean.class);
-							setCreateViewMethod.invoke(task, createView);
-						} catch(java.lang.NoSuchMethodException e) {
-							Logger.getLogger(NetworkImportTask.class.getName()).warning("Unable to explicitly set view creation. Make sure a current version of the CX Support app is installed.");
-						}
-						task.run(new HeadlessTaskMonitor());
-					} catch (Exception e) {
-						Logger.getLogger(NetworkImportTask.class.getName()).log(Level.WARNING, "Network import task failed", e);
-					}
-				}
-			});
+			// Run the read on the calling thread. Wrapping it in invokeAndWait swallowed every failure
+			// into a log warning and threw outright when called from the EDT -- which the desktop
+			// commands are not on. Only view construction below needs the EDT.
+			try {
+				Method setCreateViewMethod = task.getClass().getMethod("setCreateView", Boolean.class);
+				setCreateViewMethod.invoke(task, createView);
+			} catch (java.lang.NoSuchMethodException e) {
+				Logger.getLogger(NetworkImportTask.class.getName()).warning("Unable to explicitly set view creation. Make sure a current version of the CX Support app is installed.");
+			}
+			task.run(new HeadlessTaskMonitor());
 			
 			if (cancelled) {
 				return;
@@ -130,15 +145,14 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 			
 			taskMonitor.setProgress(.7);
 			
-			CyNetworkManager network_manager = CyServiceModule.getService(CyNetworkManager.class);
 			int i = 1;
 			for (CyNetwork network : task.getNetworks()) {
 				if (cancelled) {
 					return;
 				}
 				taskMonitor.setStatusMessage(String.format("Registering network %s/%s...", i, task.getNetworks().length));
-				network_manager.addNetwork(network);
-				task.buildCyNetworkView(network);
+				networkManager.addNetwork(network);
+				buildViewOnEdt(task, network);
 				i++;
 			}
 			taskMonitor.setProgress(.9);
@@ -151,6 +165,9 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 				NDExNetworkManager.saveUUID(network, uuid, networkSummary.getModificationTime());
 			}
 			
+		} catch (NetworkImportException e) {
+			// Already a precise, user-facing message: let it through rather than re-wrapping it below.
+			throw e;
 		} catch (IOException ex) {
 			throw new NetworkImportException("Failed to parse JSON from NDEx source.");
 		} catch (RuntimeException ex2) {
@@ -164,6 +181,19 @@ public class NetworkImportTask extends AbstractTask implements ObservableTask {
 	
 
 	
+	/**
+	 * Builds the network view on the EDT, or directly when already on it. Confined to view construction:
+	 * everything else runs on the calling thread so failures propagate instead of being logged and dropped.
+	 */
+	private static void buildViewOnEdt(final AbstractCyNetworkReader reader, final CyNetwork network)
+			throws InvocationTargetException, InterruptedException {
+		if (SwingUtilities.isEventDispatchThread()) {
+			reader.buildCyNetworkView(network);
+		} else {
+			SwingUtilities.invokeAndWait(() -> reader.buildCyNetworkView(network));
+		}
+	}
+
 	@Override
 	public void cancel() {
 		super.cancel();

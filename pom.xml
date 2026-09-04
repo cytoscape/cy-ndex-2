@@ -96,7 +96,7 @@
 						<Embed-Dependency>*;scope=!provided|test;groupId=!org.cytoscape</Embed-Dependency>
 						<Embed-Transitive>true</Embed-Transitive>
 						<Import-Package>*;resolution:=optional</Import-Package>
-						<Cytoscape-App-Dependencies>cyREST;3.5.0,CX Support;2.6.0</Cytoscape-App-Dependencies>
+						<Cytoscape-App-Dependencies>cyREST;3.5.0,CX Support;2.8.0</Cytoscape-App-Dependencies>
 					</instructions>
 				</configuration>
 			</plugin>
@@ -261,7 +261,7 @@
 		<dependency>
 			<groupId>org.ndexbio.client</groupId>
 			<artifactId>ndex-java-client</artifactId>
-			<version>3.0.0</version>
+			<version>3.0.1-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>

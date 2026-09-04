@@ -38,6 +38,122 @@ If you are uninstalling a v2.x release, additional Electron and JxBrowser artifa
 ## How to Use CyNDEx-2
 (TBD)
 
+## Cytoscape Commands
+
+CyNDEx-2 publishes three commands under the `ndex` namespace, so NDEx can be driven from Cytoscape's
+command line, from scripts, and from MCP tooling — using the sign-in profiles you already have.
+
+Open **Tools &rarr; Command Line Dialog** in Cytoscape Desktop, then:
+
+```
+help ndex
+```
+
+lists the three commands, and
+
+```
+help ndex upload network
+```
+
+prints that command's arguments and description.
+
+All three take a `profile` argument naming a CyNDEx-2 sign-in profile as `username@serverUrl` — the same
+spelling shown in the sign-in UI. Omit it and the currently selected profile is used.
+
+All three require an NDEx server running **v3.0.0 or newer**, and CX Support **2.8.0 or newer**.
+
+### ndex upload network
+
+Uploads the network currently selected in Cytoscape. A **single network only** — not a network
+collection, which CX2 cannot represent. Use **File &rarr; Export &rarr; Collection to NDEx...** for those.
+
+| Argument | Description |
+|---|---|
+| `profile` | Profile to upload as, as `username@serverUrl`. Defaults to the selected profile. |
+| `networkId` | UUID of an existing NDEx network to overwrite. Omit to create a new one. |
+| `visibility` | `PRIVATE` (default), `PUBLIC`, or `UNLISTED`. |
+| `folder` | NDEx folder to place the network in, as a folder name or UUID. |
+
+```
+ndex upload network profile="alice@https://www.ndexbio.org/v2" visibility=PRIVATE folder="My Project"
+```
+
+```json
+{
+  "uuid": "12345678-abcd-1234-abcd-1234567890ab",
+  "url": "https://www.ndexbio.org/viewer/networks/12345678-abcd-1234-abcd-1234567890ab",
+  "visibility": "PRIVATE",
+  "folderId": "87654321-dcba-4321-dcba-0987654321ba"
+}
+```
+
+### ndex download network
+
+| Argument | Description |
+|---|---|
+| `networkId` | UUID of the NDEx network to download. Required. |
+| `profile` | Profile to download as. Defaults to the selected profile. |
+| `accessKey` | Access key, for a network shared by link. |
+| `createView` | Whether to build a network view. Unset uses the CX reader's default. |
+
+```
+ndex download network networkId=12345678-abcd-1234-abcd-1234567890ab
+```
+
+```json
+{"suid": 52, "uuid": "12345678-abcd-1234-abcd-1234567890ab", "name": "My network"}
+```
+
+### ndex search networks
+
+| Argument | Description |
+|---|---|
+| `searchTerm` | Text matched against network name, description and owner. |
+| `profile` | Profile to search as. Defaults to the selected profile. |
+| `visibility` | `ALL` (default), `PUBLIC`, or `PRIVATE`. |
+| `maxResults` | Maximum results to return. Defaults to 100. |
+| `startIndex` | Zero-based index of the first result, for paging. |
+
+`UNLISTED` is not a search option: unlisted networks are reachable by link but are deliberately
+excluded from NDEx search results.
+
+```
+ndex search networks searchTerm="cancer signaling" visibility=PUBLIC maxResults=25
+```
+
+```json
+{
+  "numFound": 1,
+  "start": 0,
+  "networks": [
+    {
+      "uuid": "12345678-abcd-1234-abcd-1234567890ab",
+      "name": "My network",
+      "owner": "alice",
+      "visibility": "PUBLIC",
+      "edges": 42,
+      "modificationTime": "2026-01-01 00:00:00.0"
+    }
+  ]
+}
+```
+
+### From CyREST
+
+The same commands are reachable over CyREST, which is how MCP tooling discovers them:
+
+```
+GET  http://localhost:1234/v1/commands/ndex
+POST http://localhost:1234/v1/commands/ndex/upload%20network
+```
+
+### A note on NDEx UUIDs
+
+Uploading a single network — by command or through **File &rarr; Export &rarr; Network to NDEx...** — records
+the NDEx UUID against that network. Saving a *collection* records it against the collection instead. A
+network put through both paths therefore ends up associated with two different NDEx networks, and which
+one an update targets depends on which path you use.
+
 # For Developers
 This app provides user interface for NDEx, and it uses REST API provided via CyREST.  You can use CyREST-2 endpoints from tools of your choice, including [Jupyter Notebook](http://jupyter.org/).
 
@@ -71,6 +187,12 @@ mvn clean install
 
 ## New: CyREST API
 This app adds new endpoints to Cytoscape and you can use them to programmatically access some of the features of this application.
+
+> **Single-network transfers use CX2 over the NDEx v3 API.** Saving or loading one network — through these
+> endpoints, through the File menu, or through the `ndex` commands — requires an NDEx server at v3.0.0 or
+> newer and CX Support 2.8.0 or newer. Saving a *collection* is unchanged and still uses CX1 over v2, since
+> CX2 cannot carry sibling sub-networks. `POST /networks/cx` accepts either CX1 or CX2: the format is
+> detected from the stream you post.
 
 ### Endpoints
 
@@ -152,6 +274,16 @@ Create new network from an NDEx entry.
 * serverUrl - URL of the NDEx API server
 * userId - (Optional) NDEx user ID for loading private network
 * password - (Optional) NDEx password for loading private network
+
+The save endpoints (`POST /networks/{suid}`, `POST /networks/current`, and their `PUT` counterparts)
+additionally accept, for single networks only:
+
+* visibility - (Optional) `PUBLIC`, `PRIVATE` or `UNLISTED`. Omit to leave NDEx's own default in place.
+* folder - (Optional) NDEx folder to place the network in, as a folder name or UUID.
+* networkId - (Optional) UUID of an existing NDEx network to overwrite, on an update.
+
+Supplying `visibility` or `folder` when saving a collection is an error. The long-standing `isPublic`
+field still works when set explicitly, and is left alone when omitted.
 
 ##### Sample response
 ```json

@@ -32,6 +32,32 @@ public final class UrlUtils {
 		return "https://" + url;
 	}
 
+	/**
+	 * Strips a trailing NDEx API-version segment ({@code /v2} or {@code /v3}, with or without a trailing
+	 * slash) so a stored profile URL can be used as a server root.
+	 *
+	 * Profile URLs are normalized through {@link #getBaseRoute(String)}, which appends {@code /v2}, and
+	 * {@code Server.DEFAULT_SERVER} is literally {@code http://public.ndexbio.org/v2}. Anything that
+	 * builds its own path from the server root — the {@code /v3/admin/status} probe, for instance —
+	 * must strip that first, or it produces {@code .../v2/v3/admin/status}. Mirrors what
+	 * {@code NdexRestClient} does internally with the same URLs.
+	 */
+	public static String stripApiVersion(String url) {
+		if (url == null || url.isEmpty()) return url;
+		String stripped = url;
+		while (stripped.endsWith("/")) {
+			stripped = stripped.substring(0, stripped.length() - 1);
+		}
+		final String lower = stripped.toLowerCase();
+		if (lower.endsWith("/v2") || lower.endsWith("/v3")) {
+			stripped = stripped.substring(0, stripped.length() - 3);
+		}
+		while (stripped.endsWith("/")) {
+			stripped = stripped.substring(0, stripped.length() - 1);
+		}
+		return stripped;
+	}
+
 	public static String getBaseRoute(String url) {
 		if (url == null || url.isEmpty()) return url;
 		String withProto = addHttpProtocol(url);
