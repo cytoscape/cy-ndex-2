@@ -27,7 +27,10 @@ public class NDExDownloadNetworkCommandTask extends AbstractNdexCommandTask {
 
 	@Tunable(description = "NDEx profile to download as, given as username@serverUrl",
 			longDescription = "The CyNDEx-2 sign-in profile to use, written as username@serverUrl. "
-					+ "When omitted, the currently selected profile is used.",
+					+ "When omitted, the profile currently selected in CyNDEx-2 is used; if none is selected and "
+					+ "none are configured, this runs anonymously against the public NDEx server at "
+					+ "https://www.ndexbio.org, which can only reach public networks. "
+					+ "Run 'ndex list profiles' to see the configured profiles.",
 			exampleStringValue = "alice@https://www.ndexbio.org/v2",
 			required = false)
 	public String profile = null;
@@ -77,7 +80,7 @@ public class NDExDownloadNetworkCommandTask extends AbstractNdexCommandTask {
 			throw new IllegalArgumentException("Invalid networkId '" + networkId + "'. Expected a UUID.");
 		}
 
-		final Server server = profileResolver.resolve(profile);
+		final Server server = profileResolver.resolveOrAnonymous(profile);
 		final NDExImportParameters params = new NDExImportParameters(uuid.toString(), server.getUsername(),
 				server.getPassword(), server.getUrl(), emptyToNull(accessKey), null, createView);
 

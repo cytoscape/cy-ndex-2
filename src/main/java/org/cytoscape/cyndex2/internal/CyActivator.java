@@ -30,6 +30,7 @@ import org.cytoscape.cyndex2.internal.rest.endpoints.impl.NdexStatusResourceImpl
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.task.OpenBrowseTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NDExDownloadNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExListProfilesCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NDExSearchNetworksCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NDExUploadNetworkCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NdexCommandProperties;
@@ -232,6 +233,8 @@ public class CyActivator extends AbstractCyActivator {
 				TaskFactory.class, NdexCommandProperties.downloadNetwork());
 		registerService(bc, new NDExSearchNetworksCommandTaskFactory(profileResolver, serverCapabilities),
 				TaskFactory.class, NdexCommandProperties.searchNetworks());
+		registerService(bc, new NDExListProfilesCommandTaskFactory(profileResolver),
+				TaskFactory.class, NdexCommandProperties.listProfiles());
 
 	}
 

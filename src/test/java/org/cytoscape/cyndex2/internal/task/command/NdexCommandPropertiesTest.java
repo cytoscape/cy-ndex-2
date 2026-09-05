@@ -7,6 +7,7 @@ import static org.cytoscape.work.ServiceProperties.COMMAND_LONG_DESCRIPTION;
 import static org.cytoscape.work.ServiceProperties.COMMAND_NAMESPACE;
 import static org.cytoscape.work.ServiceProperties.COMMAND_SUPPORTS_JSON;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
@@ -20,9 +21,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class NdexCommandPropertiesTest {
 
 	private static List<Properties> all() {
-		return Arrays.asList(NdexCommandProperties.uploadNetwork(),
-				NdexCommandProperties.downloadNetwork(),
-				NdexCommandProperties.searchNetworks());
+		return NdexCommandProperties.all();
+	}
+
+	private static String longDescriptionOf(Properties props) {
+		return props.getProperty(COMMAND_LONG_DESCRIPTION);
 	}
 
 	@Test
@@ -52,12 +55,71 @@ public class NdexCommandPropertiesTest {
 		}
 	}
 
+	/**
+	 * Scoped to the commands that contact a server. `list profiles` reads local configuration and must
+	 * work when NDEx is unreachable, so claiming a server requirement there would be wrong.
+	 */
 	@Test
-	public void everyLongDescriptionStatesTheV3Requirement() {
-		for (Properties props : all()) {
-			assertTrue(props.getProperty(COMMAND),
-					props.getProperty(COMMAND_LONG_DESCRIPTION).contains("NDEx v3.0.0"));
+	public void everyServerCommandStatesTheV3Requirement() {
+		for (Properties props : NdexCommandProperties.serverCommands()) {
+			assertTrue(props.getProperty(COMMAND), longDescriptionOf(props).contains("NDEx v3.0.0"));
 		}
+	}
+
+	@Test
+	public void listProfilesDoesNotClaimToNeedAServer() {
+		String description = longDescriptionOf(NdexCommandProperties.listProfiles());
+		assertFalse(description, description.contains("NDEx v3.0.0"));
+		assertTrue(description, description.contains("contacts no server"));
+	}
+
+	// ---------- the descriptions an agent reads to decide what to do ----------
+
+	@Test
+	public void uploadStatesThatItNeedsASignedInProfile() {
+		assertTrue(longDescriptionOf(NdexCommandProperties.uploadNetwork()).contains("signed-in profile"));
+	}
+
+	@Test
+	public void readOnlyCommandsDocumentTheAnonymousFallbackAndNameTheHost() {
+		for (Properties props : Arrays.asList(NdexCommandProperties.downloadNetwork(),
+				NdexCommandProperties.searchNetworks())) {
+			String description = longDescriptionOf(props);
+			assertTrue(props.getProperty(COMMAND), description.contains("anonymously"));
+			// naming the host here means the docs and the fallback fail together if it ever changes
+			assertTrue(props.getProperty(COMMAND), description.contains(NdexCommandProperties.PUBLIC_NDEX_SERVER));
+		}
+	}
+
+	@Test
+	public void listProfilesExplainsWhatAnEmptyListMeans() {
+		String description = longDescriptionOf(NdexCommandProperties.listProfiles());
+		assertTrue(description, description.contains("empty list"));
+		assertTrue(description, description.contains("upload"));
+		assertTrue(description, description.contains("anonymously"));
+	}
+
+	@Test
+	public void everyCommandPointsAtTheProfileListing() {
+		for (Properties props : NdexCommandProperties.serverCommands()) {
+			assertTrue(props.getProperty(COMMAND),
+					longDescriptionOf(props).contains("ndex list profiles"));
+		}
+	}
+
+	// ---------- anti-drift ----------
+
+	@Test
+	public void everyRegisteredCommandHasAFactoryAndViceVersa() {
+		java.util.Set<String> declared = new java.util.HashSet<>();
+		for (Properties props : all()) {
+			declared.add(props.getProperty(COMMAND));
+		}
+		assertEquals("NdexCommandProperties.all() and NdexCommandFixtures must list the same commands",
+				NdexCommandFixtures.allFactories().size(), declared.size());
+		assertEquals(new java.util.HashSet<>(Arrays.asList(
+				NdexCommandProperties.UPLOAD_NETWORK, NdexCommandProperties.DOWNLOAD_NETWORK,
+				NdexCommandProperties.SEARCH_NETWORKS, NdexCommandProperties.LIST_PROFILES)), declared);
 	}
 
 	@Test

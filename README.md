@@ -57,10 +57,16 @@ help ndex upload network
 
 prints that command's arguments and description.
 
-All three take a `profile` argument naming a CyNDEx-2 sign-in profile as `username@serverUrl` — the same
-spelling shown in the sign-in UI. Omit it and the currently selected profile is used.
+All of them take a `profile` argument naming a CyNDEx-2 sign-in profile as `username@serverUrl` — the same
+spelling shown in the sign-in UI. Omit it and the currently selected profile is used; run `ndex list profiles`
+to see what is configured.
 
-All three require an NDEx server running **v3.0.0 or newer**, and CX Support **2.8.0 or newer**.
+If no profile is selected and none are configured, `download` and `search` fall back to the public NDEx server
+at `https://www.ndexbio.org` anonymously, and so can only reach public networks. `upload` always needs a
+signed-in profile and reports an error if there is none.
+
+The three network commands require an NDEx server running **v3.0.0 or newer**, and CX Support **2.8.0 or
+newer**. `ndex list profiles` reads local configuration only and works even when NDEx is unreachable.
 
 ### ndex upload network
 
@@ -110,12 +116,13 @@ ndex download network networkId=12345678-abcd-1234-abcd-1234567890ab
 |---|---|
 | `searchTerm` | Text matched against network name, description and owner. |
 | `profile` | Profile to search as. Defaults to the selected profile. |
-| `visibility` | `ALL` (default), `PUBLIC`, or `PRIVATE`. |
-| `maxResults` | Maximum results to return. Defaults to 100. |
-| `startIndex` | Zero-based index of the first result, for paging. |
+| `visibility` | `PUBLIC` (default) or `PRIVATE`. `PRIVATE` searches your own networks and needs a signed-in profile. |
+| `maxResults` | Maximum results to return, a whole number. Defaults to 100. |
+| `startIndex` | Zero-based index of the first result, for paging. A whole number. |
 
-`UNLISTED` is not a search option: unlisted networks are reachable by link but are deliberately
-excluded from NDEx search results.
+NDEx treats this as a choice of corpus rather than a filter, so there is no option to search public and
+private together. `UNLISTED` is not an option either: unlisted networks are reachable by link but are
+deliberately excluded from NDEx search results.
 
 ```
 ndex search networks searchTerm="cancer signaling" visibility=PUBLIC maxResults=25
@@ -137,6 +144,30 @@ ndex search networks searchTerm="cancer signaling" visibility=PUBLIC maxResults=
   ]
 }
 ```
+
+### ndex list profiles
+
+Lists the sign-in profiles configured in CyNDEx-2. Takes no arguments and contacts no server.
+
+```
+ndex list profiles
+```
+
+```json
+{
+  "count": 2,
+  "profiles": [
+    {"name": "alice@https://www.ndexbio.org", "username": "alice",
+     "serverUrl": "https://www.ndexbio.org", "isCurrent": true},
+    {"name": "@https://www.ndexbio.org", "username": null,
+     "serverUrl": "https://www.ndexbio.org", "isCurrent": false}
+  ]
+}
+```
+
+`name` is exactly the string the `profile` argument of the other commands accepts. A `null` username marks an
+anonymous profile. An empty list means `upload` will not work until you add a profile, while `download` and
+`search` will still run anonymously against public NDEx.
 
 ### From CyREST
 

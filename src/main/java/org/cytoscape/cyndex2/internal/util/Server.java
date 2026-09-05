@@ -48,7 +48,7 @@ public class Server
     
   	private static final Server getDefaultServer() {
   		final Server server = new Server();
-  		server.url = "http://public.ndexbio.org/v2";
+  		server.url = "https://www.ndexbio.org";
   		return server;
   	}
   			

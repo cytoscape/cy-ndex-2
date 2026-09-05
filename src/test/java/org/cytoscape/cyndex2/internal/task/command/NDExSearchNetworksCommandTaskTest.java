@@ -9,10 +9,12 @@ import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import org.cytoscape.cyndex2.internal.rest.NdexAdminStatusService;
@@ -46,8 +48,9 @@ public class NDExSearchNetworksCommandTaskTest {
 		server.setUsername("alice");
 		server.setUrl("https://www.ndexbio.org/v2");
 		resolver = mock(NdexProfileResolver.class);
-		when(resolver.resolve(any(String.class))).thenReturn(server);
-		when(resolver.resolve(null)).thenReturn(server);
+		// search resolves through resolveOrAnonymous so it can fall back to public NDEx
+		when(resolver.resolveOrAnonymous(any(String.class))).thenReturn(server);
+		when(resolver.resolveOrAnonymous(null)).thenReturn(server);
 		when(mal.searchFiles(any(SimpleFileQuery.class), any(FileVisibilityType.class), anyInt(), anyInt()))
 				.thenReturn(new FileSearchResult(0L, 0L, Arrays.asList()));
 	}
@@ -63,24 +66,27 @@ public class NDExSearchNetworksCommandTaskTest {
 	}
 
 	@Test
-	public void visibilityAllSendsNoVisibilityFilter() throws Exception {
+	public void defaultsToSearchingPublicNetworks() throws Exception {
+		// NDEx defaults an unset visibility to PUBLIC server-side, so the command sends PUBLIC
+		// explicitly rather than omitting it and appearing to mean "everything".
 		NDExSearchNetworksCommandTask task = task();
-		task.visibility.setSelectedValue(NDExSearchNetworksCommandTask.VISIBILITY_ALL);
 		task.run(taskMonitor);
 
-		verify(mal).searchFiles(any(SimpleFileQuery.class), eq((FileVisibilityType) null), anyInt(), anyInt());
+		verify(mal).searchFiles(any(SimpleFileQuery.class), eq(FileVisibilityType.PUBLIC), anyInt(), anyInt());
 	}
 
 	@Test
-	public void publicAndPrivateArePassedThrough() throws Exception {
-		NDExSearchNetworksCommandTask task = task();
-		task.visibility.setSelectedValue("PUBLIC");
-		task.run(taskMonitor);
-		verify(mal).searchFiles(any(SimpleFileQuery.class), eq(FileVisibilityType.PUBLIC), anyInt(), anyInt());
+	public void thereIsNoAllOption() {
+		List<String> options = task().visibility.getPossibleValues();
+		assertEquals("NDEx offers two search corpora, not three", Arrays.asList("PUBLIC", "PRIVATE"), options);
+	}
 
-		NDExSearchNetworksCommandTask privateTask = task();
-		privateTask.visibility.setSelectedValue("PRIVATE");
-		privateTask.run(taskMonitor);
+	@Test
+	public void privateIsPassedThrough() throws Exception {
+		NDExSearchNetworksCommandTask task = task();
+		task.visibility.setSelectedValue("PRIVATE");
+		task.run(taskMonitor);
+
 		verify(mal).searchFiles(any(SimpleFileQuery.class), eq(FileVisibilityType.PRIVATE), anyInt(), anyInt());
 	}
 
@@ -89,11 +95,81 @@ public class NDExSearchNetworksCommandTaskTest {
 		NDExSearchNetworksCommandTask task = task();
 		task.visibility = new org.cytoscape.work.util.ListSingleSelection<>("UNLISTED");
 		task.visibility.setSelectedValue("UNLISTED");
+		assertRejected(task, "UNLISTED is not a search mode");
+	}
+
+	@Test
+	public void searchingPrivateAnonymouslyIsRejectedWithACredentialsMessage() throws Exception {
+		// keyed off the resolved profile being anonymous, not off whether the fallback fired
+		Server anonymous = new Server();
+		anonymous.setUrl("https://www.ndexbio.org");
+		when(resolver.resolveOrAnonymous(any(String.class))).thenReturn(anonymous);
+		when(resolver.resolveOrAnonymous(null)).thenReturn(anonymous);
+
+		NDExSearchNetworksCommandTask task = task();
+		task.visibility.setSelectedValue("PRIVATE");
+		assertRejected(task, "requires a signed-in NDEx profile");
+	}
+
+	@Test
+	public void searchingPublicAnonymouslyIsFine() throws Exception {
+		Server anonymous = new Server();
+		anonymous.setUrl("https://www.ndexbio.org");
+		when(resolver.resolveOrAnonymous(null)).thenReturn(anonymous);
+
+		task().run(taskMonitor);
+
+		verify(mal).searchFiles(any(SimpleFileQuery.class), eq(FileVisibilityType.PUBLIC), anyInt(), anyInt());
+	}
+
+	// ---------- numeric arguments ----------
+
+	@Test
+	public void pagingArgumentsAcceptWholeNumbers() throws Exception {
+		NDExSearchNetworksCommandTask task = task();
+		task.startIndex = 20;
+		task.maxResults = 5;
+		task.run(taskMonitor);
+
+		verify(mal).searchFiles(any(SimpleFileQuery.class), any(FileVisibilityType.class), eq(20), eq(5));
+	}
+
+	@Test
+	public void aFractionalCountIsRejectedRatherThanTruncated() throws Exception {
+		NDExSearchNetworksCommandTask task = task();
+		task.maxResults = 10.5;
+		assertRejected(task, "Invalid maxResults");
+	}
+
+	@Test
+	public void aCountBelowOneIsRejected() throws Exception {
+		NDExSearchNetworksCommandTask task = task();
+		task.maxResults = 0;
+		assertRejected(task, "Invalid maxResults");
+	}
+
+	@Test
+	public void aNegativeStartIndexIsRejected() throws Exception {
+		NDExSearchNetworksCommandTask task = task();
+		task.startIndex = -1;
+		assertRejected(task, "Invalid startIndex");
+	}
+
+	@Test
+	public void argumentsAreValidatedBeforeAnythingReachesTheNetwork() throws Exception {
+		NDExSearchNetworksCommandTask task = task();
+		task.maxResults = -3;
+		assertRejected(task, "Invalid maxResults");
+
+		verifyZeroInteractions(mal);
+	}
+
+	private void assertRejected(NDExSearchNetworksCommandTask task, String expected) throws Exception {
 		try {
 			task.run(taskMonitor);
-			fail("expected IllegalArgumentException");
+			fail("expected IllegalArgumentException containing: " + expected);
 		} catch (IllegalArgumentException e) {
-			assertTrue(e.getMessage(), e.getMessage().contains("UNLISTED is not a search mode"));
+			assertTrue(e.getMessage(), e.getMessage().contains(expected));
 		}
 	}
 
@@ -101,12 +177,10 @@ public class NDExSearchNetworksCommandTaskTest {
 	public void searchTermAndPagingMapOntoTheQuery() throws Exception {
 		NDExSearchNetworksCommandTask task = task();
 		task.searchTerm = "  cancer signaling  ";
-		task.startIndex = 20;
-		task.maxResults = 5;
 		task.run(taskMonitor);
 
 		ArgumentCaptor<SimpleFileQuery> query = ArgumentCaptor.forClass(SimpleFileQuery.class);
-		verify(mal).searchFiles(query.capture(), any(FileVisibilityType.class), eq(20), eq(5));
+		verify(mal).searchFiles(query.capture(), any(FileVisibilityType.class), anyInt(), anyInt());
 		assertEquals("cancer signaling", query.getValue().getSearchString());
 	}
 

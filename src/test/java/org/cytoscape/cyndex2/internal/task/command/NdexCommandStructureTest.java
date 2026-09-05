@@ -31,14 +31,8 @@ import org.junit.Test;
  */
 public class NdexCommandStructureTest {
 
-	/** Built with mocks that are never touched: constructing a factory must not do any work. */
 	private List<TaskFactory> factories() {
-		NdexProfileResolver resolver = mock(NdexProfileResolver.class);
-		return Arrays.asList(
-				new NDExUploadNetworkCommandTaskFactory(resolver, mock(CyApplicationManager.class)),
-				new NDExDownloadNetworkCommandTaskFactory(resolver, mock(CyNetworkManager.class)),
-				new NDExSearchNetworksCommandTaskFactory(resolver,
-						new NdexServerCapabilities(mock(NdexAdminStatusService.class))));
+		return NdexCommandFixtures.allFactories();
 	}
 
 	private static List<Task> tasksOf(TaskFactory factory) {
@@ -65,12 +59,26 @@ public class NdexCommandStructureTest {
 			}
 			List<Task> tasks = tasksOf(factory);
 			assertEquals(factory.getClass().getSimpleName(), 1, tasks.size());
-			long tunables = Arrays.stream(tasks.get(0).getClass().getDeclaredFields())
+		}
+	}
+
+	/**
+	 * Commands that take arguments must declare them on the task. `list profiles` takes none, so this
+	 * is scoped rather than applied to every command -- otherwise a correctly argument-free command
+	 * would fail a guard.
+	 */
+	@Test
+	public void everyArgumentTakingCommandDeclaresItsTunablesOnTheTask() {
+		int withArguments = 0;
+		for (Task task : NdexCommandFixtures.allTasks()) {
+			long tunables = Arrays.stream(task.getClass().getDeclaredFields())
 					.filter(f -> f.isAnnotationPresent(Tunable.class))
 					.count();
-			assertTrue(tasks.get(0).getClass().getSimpleName() + " declares no @Tunable arguments",
-					tunables > 0);
+			if (tunables > 0) {
+				withArguments++;
+			}
 		}
+		assertEquals("upload, download and search all take arguments", 3, withArguments);
 	}
 
 	/**
@@ -89,8 +97,10 @@ public class NdexCommandStructureTest {
 		assertNotNull(new NDExDownloadNetworkCommandTaskFactory(resolver, networkManager).createTaskIterator());
 		assertNotNull(new NDExSearchNetworksCommandTaskFactory(resolver,
 				new NdexServerCapabilities(adminStatus)).createTaskIterator());
+		assertNotNull(new NDExListProfilesCommandTaskFactory(resolver).createTaskIterator());
 
-		// no profile lookup, no current-network read, no HTTP probe
+		// no profile lookup, no current-network read, no HTTP probe -- and, for list profiles, no
+		// enumeration of the server list either
 		verifyZeroInteractions(resolver, appManager, networkManager, adminStatus);
 	}
 

@@ -38,9 +38,7 @@ public class NdexProfileResolver {
 		if (profile == null || profile.trim().isEmpty()) {
 			final Server selected = selectedServer.get();
 			if (selected == null) {
-				throw new IllegalArgumentException(
-						"No NDEx profile is selected. Sign in through CyNDEx-2, or name a profile with the "
-						+ "'profile' parameter as username@serverUrl.");
+				throw new IllegalArgumentException(noConfiguredProfileMessage());
 			}
 			return selected;
 		}
@@ -58,6 +56,44 @@ public class NdexProfileResolver {
 					"No NDEx profile '" + profile + "'. Available profiles: " + describeAvailable() + ".");
 		}
 		return matches.get(0);
+	}
+
+	/**
+	 * Resolves a profile the way {@link #resolve(String)} does, but falls back to anonymous public NDEx
+	 * when nothing was named and nothing is selected.
+	 *
+	 * Only for read-only commands: downloading and searching public networks needs no credentials. A
+	 * profile that WAS named and does not exist is still an error -- the fallback must never turn a
+	 * mistyped profile name into a silent anonymous search against the wrong data.
+	 */
+	public Server resolveOrAnonymous(final String profile) {
+		if (profile != null && !profile.trim().isEmpty()) {
+			return resolve(profile);
+		}
+		final Server selected = selectedServer.get();
+		if (selected != null) {
+			return selected;
+		}
+		// A copy, never the singleton: Server is mutable and DEFAULT_SERVER is shared globally.
+		return new Server(Server.DEFAULT_SERVER);
+	}
+
+	/** Every profile CyNDEx-2 has, in the order the app holds them, with the selected one flagged. */
+	public List<NdexProfile> list() {
+		final Server selected = selectedServer.get();
+		return availableServers.get().stream()
+				.map(server -> new NdexProfile(profileNameOf(server), server.getUsername(),
+						server.getUrl(), selected != null && selected.equals(server)))
+				.collect(Collectors.toList());
+	}
+
+	private String noConfiguredProfileMessage() {
+		if (availableServers.get().getSize() == 0) {
+			return "No NDEx profiles are defined in CyNDEx-2. Sign in through the CyNDEx-2 toolbar in Cytoscape "
+					+ "to add one, then retry. Run 'ndex list profiles' to check.";
+		}
+		return "No NDEx profile is selected in CyNDEx-2. Select one in the CyNDEx-2 toolbar, or name one with "
+				+ "the 'profile' parameter as username@serverUrl. Run 'ndex list profiles' to see them.";
 	}
 
 	/** The {@code username@serverUrl} name of a profile; anonymous profiles have an empty username. */

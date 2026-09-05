@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -26,12 +27,12 @@ public class NoStaticReachThroughTest {
 			"org/cytoscape/cyndex2/internal/CyServiceModule",
 			"org/cytoscape/cyndex2/internal/util/ServerManager");
 
-	private static final List<Class<?>> COMMAND_CLASSES = Arrays.asList(
-			NDExUploadNetworkCommandTask.class,
-			NDExDownloadNetworkCommandTask.class,
-			NDExSearchNetworksCommandTask.class,
-			AbstractNdexCommandTask.class,
-			NdexCommandProperties.class);
+	private static List<Class<?>> commandClasses() {
+		List<Class<?>> classes = new ArrayList<>(NdexCommandFixtures.allTaskClasses());
+		classes.add(AbstractNdexCommandTask.class);
+		classes.add(NdexCommandProperties.class);
+		return classes;
+	}
 
 	private static String bytecodeOf(Class<?> type) throws IOException {
 		final String resource = type.getName().replace('.', '/') + ".class";
@@ -49,7 +50,7 @@ public class NoStaticReachThroughTest {
 
 	@Test
 	public void commandClassesDoNotReferenceServiceLocatorSingletons() throws Exception {
-		for (Class<?> type : COMMAND_CLASSES) {
+		for (Class<?> type : commandClasses()) {
 			final String bytecode = bytecodeOf(type);
 			for (String forbidden : FORBIDDEN) {
 				assertFalse(type.getSimpleName() + " reaches through to " + forbidden

@@ -51,8 +51,11 @@ public class NdexCommandResultTest {
 
 	private static NdexProfileResolver resolverFor(Server server) {
 		NdexProfileResolver resolver = mock(NdexProfileResolver.class);
+		// upload requires a real profile; download may fall back to anonymous
 		when(resolver.resolve(any(String.class))).thenReturn(server);
 		when(resolver.resolve(null)).thenReturn(server);
+		when(resolver.resolveOrAnonymous(any(String.class))).thenReturn(server);
+		when(resolver.resolveOrAnonymous(null)).thenReturn(server);
 		return resolver;
 	}
 
@@ -97,6 +100,32 @@ public class NdexCommandResultTest {
 
 		// and the same content is available as a JSONResult, which is what CyREST reads
 		assertEquals(task.getResults(String.class), task.getResults(JSONResult.class).getJSON());
+	}
+
+	@Test
+	public void uploadReturnsAUsableUrlEvenWhenTheProfileStoresABareHost() throws Exception {
+		// Profiles keep the URL exactly as typed, so "www.ndexbio.org" with no scheme is normal --
+		// and without one the returned url is not a link.
+		UUID uuid = UUID.randomUUID();
+		NDExExportTaskFactory exportFactory = mock(NDExExportTaskFactory.class);
+		when(exportFactory.createTaskIterator(any(CyNetwork.class)))
+				.thenReturn(new TaskIterator(new ObservableDelegate()));
+		when(exportFactory.getUUID()).thenReturn(uuid);
+
+		CyApplicationManager appManager = mock(CyApplicationManager.class);
+		when(appManager.getCurrentNetwork()).thenReturn(mock(CyNetwork.class));
+
+		Server bareHost = new Server();
+		bareHost.setUsername("alice");
+		bareHost.setPassword("secret");
+		bareHost.setUrl("www.ndexbio.org");
+
+		NDExUploadNetworkCommandTask task = new NDExUploadNetworkCommandTask(
+				resolverFor(bareHost), appManager, (params, isUpdate) -> exportFactory);
+		task.run(taskMonitor);
+
+		JsonNode result = new ObjectMapper().readTree(task.getResults(String.class));
+		assertEquals("https://www.ndexbio.org/viewer/networks/" + uuid, result.get("url").asText());
 	}
 
 	@Test

@@ -37,7 +37,7 @@ public final class UrlUtils {
 	 * slash) so a stored profile URL can be used as a server root.
 	 *
 	 * Profile URLs are normalized through {@link #getBaseRoute(String)}, which appends {@code /v2}, and
-	 * {@code Server.DEFAULT_SERVER} is literally {@code http://public.ndexbio.org/v2}. Anything that
+	 * a stored profile URL may already carry one. Anything that
 	 * builds its own path from the server root — the {@code /v3/admin/status} probe, for instance —
 	 * must strip that first, or it produces {@code .../v2/v3/admin/status}. Mirrors what
 	 * {@code NdexRestClient} does internally with the same URLs.

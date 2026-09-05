@@ -27,7 +27,9 @@ public class NDExUploadNetworkCommandTask extends AbstractNdexCommandTask {
 
 	@Tunable(description = "NDEx profile to upload as, given as username@serverUrl",
 			longDescription = "The CyNDEx-2 sign-in profile to use, written as username@serverUrl. "
-					+ "When omitted, the currently selected profile is used.",
+					+ "When omitted, the profile currently selected in CyNDEx-2 is used. Uploading requires a "
+					+ "signed-in profile, so this fails if none is selected. "
+					+ "Run 'ndex list profiles' to see the configured profiles.",
 			exampleStringValue = "alice@https://www.ndexbio.org/v2",
 			required = false)
 	public String profile = null;
@@ -128,6 +130,9 @@ public class NDExUploadNetworkCommandTask extends AbstractNdexCommandTask {
 		if (uuid == null) {
 			return null;
 		}
-		return UrlUtils.stripApiVersion(server.getUrl()) + "/viewer/networks/" + uuid;
+		// Profile URLs are stored exactly as the user typed them, so a bare host like "www.ndexbio.org"
+		// is normal. Add a scheme, or the result is not a usable link.
+		final String host = UrlUtils.addHttpsProtocol(UrlUtils.stripApiVersion(server.getUrl()));
+		return host + "/viewer/networks/" + uuid;
 	}
 }
