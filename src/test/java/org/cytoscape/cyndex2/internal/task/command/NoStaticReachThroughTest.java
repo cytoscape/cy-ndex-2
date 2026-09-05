@@ -30,6 +30,8 @@ public class NoStaticReachThroughTest {
 	private static List<Class<?>> commandClasses() {
 		List<Class<?>> classes = new ArrayList<>(NdexCommandFixtures.allTaskClasses());
 		classes.add(AbstractNdexCommandTask.class);
+		// the shared run sequence of the create and update commands lives here, not on either task
+		classes.add(AbstractNdexNetworkWriteTask.class);
 		classes.add(NdexCommandProperties.class);
 		return classes;
 	}
@@ -65,6 +67,6 @@ public class NoStaticReachThroughTest {
 		// guards the assertion above from passing because the scan is broken: this class does
 		// reference the command classes, so their names must be findable in its own bytecode.
 		assertTrue(bytecodeOf(NoStaticReachThroughTest.class)
-				.contains("org/cytoscape/cyndex2/internal/task/command/NDExUploadNetworkCommandTask"));
+				.contains("org/cytoscape/cyndex2/internal/task/command/AbstractNdexNetworkWriteTask"));
 	}
 }

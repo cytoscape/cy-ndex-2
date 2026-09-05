@@ -32,7 +32,8 @@ import org.cytoscape.cyndex2.internal.task.OpenBrowseTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NDExDownloadNetworkCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NDExListProfilesCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NDExSearchNetworksCommandTaskFactory;
-import org.cytoscape.cyndex2.internal.task.command.NDExUploadNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExCreateNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExUpdateNetworkCommandTaskFactory;
 import org.cytoscape.cyndex2.internal.task.command.NdexCommandProperties;
 import org.cytoscape.cyndex2.internal.util.NdexProfileResolver;
 import org.cytoscape.cyndex2.internal.util.NdexServerCapabilities;
@@ -227,8 +228,10 @@ public class CyActivator extends AbstractCyActivator {
 		final NdexProfileResolver profileResolver = new NdexProfileResolver();
 		final NdexServerCapabilities serverCapabilities = new NdexServerCapabilities(adminStatusSvc);
 
-		registerService(bc, new NDExUploadNetworkCommandTaskFactory(profileResolver, appManager),
-				TaskFactory.class, NdexCommandProperties.uploadNetwork());
+		registerService(bc, new NDExCreateNetworkCommandTaskFactory(profileResolver, appManager),
+				TaskFactory.class, NdexCommandProperties.createNetwork());
+		registerService(bc, new NDExUpdateNetworkCommandTaskFactory(profileResolver, appManager),
+				TaskFactory.class, NdexCommandProperties.updateNetwork());
 		registerService(bc, new NDExDownloadNetworkCommandTaskFactory(profileResolver, netmgr),
 				TaskFactory.class, NdexCommandProperties.downloadNetwork());
 		registerService(bc, new NDExSearchNetworksCommandTaskFactory(profileResolver, serverCapabilities),

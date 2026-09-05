@@ -37,22 +37,67 @@ public class NdexCommandTunableMarshallingTest {
 		return NdexCommandFixtures.allTasks();
 	}
 
+	/**
+	 * getFields(), not getDeclaredFields(): arguments shared by the create and update commands are
+	 * inherited from a base class, and getDeclaredFields would let an inherited tunable slip past this
+	 * guard entirely. getFields() is also what the platform's own tunable discovery uses.
+	 */
+	private static List<Field> tunablesOf(Task task) {
+		List<Field> fields = new ArrayList<>();
+		for (Field field : task.getClass().getFields()) {
+			if (field.isAnnotationPresent(Tunable.class)) {
+				fields.add(field);
+			}
+		}
+		return fields;
+	}
+
+	/** The check itself, so the deliberately-wrong fixture below can be run through the same code. */
+	private static boolean cannotAcceptAJsonNumber(Class<?> type) {
+		return type == int.class || type == Integer.class
+				|| type == long.class || type == Long.class
+				|| type == short.class || type == Short.class;
+	}
+
 	@Test
 	public void noTunableUsesATypeThatCannotAcceptAJsonNumber() {
 		for (Task task : allCommandTasks()) {
-			for (Field field : task.getClass().getDeclaredFields()) {
-				if (!field.isAnnotationPresent(Tunable.class)) {
-					continue;
-				}
+			for (Field field : tunablesOf(task)) {
 				Class<?> type = field.getType();
-				boolean unusable = type == int.class || type == Integer.class
-						|| type == long.class || type == Long.class
-						|| type == short.class || type == Short.class;
 				assertTrue(task.getClass().getSimpleName() + "." + field.getName() + " is declared "
 						+ type.getSimpleName() + "; a JSON caller sends a number, which arrives as a Double "
 						+ "and cannot be assigned to that type. Use double.",
-						!unusable);
+						!cannotAcceptAJsonNumber(type));
 			}
+		}
+	}
+
+	/** A task whose tunable is inherited and of the type the guard exists to reject. */
+	public static class TaskWithBadNumericTunable extends BaseWithIntTunable {
+	}
+
+	public static class BaseWithIntTunable {
+		@Tunable(description = "arrives as a Double and cannot be assigned")
+		public int maxResults = 0;
+	}
+
+	/**
+	 * A passing guard is not a working guard. Put the shape it exists to catch in front of the same
+	 * predicate and the same reflection, and require both to see it.
+	 */
+	@Test
+	public void theGuardStillFiresOnAnInheritedIntTunable() throws Exception {
+		Field inherited = TaskWithBadNumericTunable.class.getField("maxResults");
+		assertTrue("an inherited @Tunable must not escape this guard",
+				inherited.isAnnotationPresent(Tunable.class));
+		assertTrue("int must still be rejected", cannotAcceptAJsonNumber(inherited.getType()));
+
+		try {
+			inherited.set(new TaskWithBadNumericTunable(), Double.valueOf(10));
+			fail("a Double must not be assignable to an int field -- if this ever succeeds, "
+					+ "the reason this guard exists has gone away");
+		} catch (IllegalArgumentException expected) {
+			// exactly what a JSON caller hits at runtime
 		}
 	}
 
@@ -60,8 +105,8 @@ public class NdexCommandTunableMarshallingTest {
 	public void everyNumericTunableAcceptsADoubleTheWayTheInterceptorAssignsIt() throws Exception {
 		int checked = 0;
 		for (Task task : allCommandTasks()) {
-			for (Field field : task.getClass().getDeclaredFields()) {
-				if (!field.isAnnotationPresent(Tunable.class) || !isNumeric(field.getType())) {
+			for (Field field : tunablesOf(task)) {
+				if (!isNumeric(field.getType())) {
 					continue;
 				}
 				field.setAccessible(true);

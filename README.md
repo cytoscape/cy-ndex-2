@@ -40,7 +40,7 @@ If you are uninstalling a v2.x release, additional Electron and JxBrowser artifa
 
 ## Cytoscape Commands
 
-CyNDEx-2 publishes three commands under the `ndex` namespace, so NDEx can be driven from Cytoscape's
+CyNDEx-2 publishes five commands under the `ndex` namespace, so NDEx can be driven from Cytoscape's
 command line, from scripts, and from MCP tooling — using the sign-in profiles you already have.
 
 Open **Tools &rarr; Command Line Dialog** in Cytoscape Desktop, then:
@@ -49,39 +49,47 @@ Open **Tools &rarr; Command Line Dialog** in Cytoscape Desktop, then:
 help ndex
 ```
 
-lists the three commands, and
+lists the commands, and
 
 ```
-help ndex upload network
+help ndex create network
 ```
 
 prints that command's arguments and description.
+
+Saving a network to NDEx is two separate commands, not one command with a switch: `ndex create network`
+always makes a **new** network, and `ndex update network` always **replaces** the content of the existing
+network you name. Which one you want depends on whether you mean to keep the network you started from, so
+there is no default — pick the one that matches your intent.
 
 All of them take a `profile` argument naming a CyNDEx-2 sign-in profile as `username@serverUrl` — the same
 spelling shown in the sign-in UI. Omit it and the currently selected profile is used; run `ndex list profiles`
 to see what is configured.
 
 If no profile is selected and none are configured, `download` and `search` fall back to the public NDEx server
-at `https://www.ndexbio.org` anonymously, and so can only reach public networks. `upload` always needs a
-signed-in profile and reports an error if there is none.
+at `https://www.ndexbio.org` anonymously, and so can only reach public networks. `create` and `update` always
+need a signed-in profile and report an error if there is none.
 
-The three network commands require an NDEx server running **v3.0.0 or newer**, and CX Support **2.8.0 or
+The four network commands require an NDEx server running **v3.0.0 or newer**, and CX Support **2.8.0 or
 newer**. `ndex list profiles` reads local configuration only and works even when NDEx is unreachable.
 
-### ndex upload network
+### ndex create network
 
-Uploads the network currently selected in Cytoscape. A **single network only** — not a network
-collection, which CX2 cannot represent. Use **File &rarr; Export &rarr; Collection to NDEx...** for those.
+Saves the network currently selected in Cytoscape to NDEx as a **new** network, and Cytoscape then tracks
+that new network. It never changes an existing one — so if the current network came from NDEx and you run
+this, you end up with two networks on NDEx.
+
+A **single network only** — not a network collection, which CX2 cannot represent. Use
+**File &rarr; Export &rarr; Collection to NDEx...** for those.
 
 | Argument | Description |
 |---|---|
-| `profile` | Profile to upload as, as `username@serverUrl`. Defaults to the selected profile. |
-| `networkId` | UUID of an existing NDEx network to overwrite. Omit to create a new one. |
+| `profile` | Profile to save as, as `username@serverUrl`. Defaults to the selected profile. |
 | `visibility` | `PRIVATE` (default), `PUBLIC`, or `UNLISTED`. |
 | `folder` | NDEx folder to place the network in, as a folder name or UUID. |
 
 ```
-ndex upload network profile="alice@https://www.ndexbio.org/v2" visibility=PRIVATE folder="My Project"
+ndex create network profile="alice@https://www.ndexbio.org/v2" visibility=PRIVATE folder="My Project"
 ```
 
 ```json
@@ -90,6 +98,34 @@ ndex upload network profile="alice@https://www.ndexbio.org/v2" visibility=PRIVAT
   "url": "https://www.ndexbio.org/viewer/networks/12345678-abcd-1234-abcd-1234567890ab",
   "visibility": "PRIVATE",
   "folderId": "87654321-dcba-4321-dcba-0987654321ba"
+}
+```
+
+### ndex update network
+
+Replaces the content of the NDEx network you name with the network currently selected in Cytoscape. This
+overwrites that network, so make sure `networkId` is the one you mean. It never creates a network, and it is
+the command to use for saving edits back to a network you downloaded.
+
+A **single network only**, as above.
+
+| Argument | Description |
+|---|---|
+| `networkId` | UUID of the NDEx network to replace. **Required.** |
+| `profile` | Profile to save as, as `username@serverUrl`. Defaults to the selected profile. |
+| `visibility` | `PRIVATE` (default), `PUBLIC`, or `UNLISTED`. |
+| `folder` | NDEx folder to place the network in, as a folder name or UUID. |
+
+```
+ndex update network networkId=12345678-abcd-1234-abcd-1234567890ab visibility=PRIVATE
+```
+
+```json
+{
+  "uuid": "12345678-abcd-1234-abcd-1234567890ab",
+  "url": "https://www.ndexbio.org/viewer/networks/12345678-abcd-1234-abcd-1234567890ab",
+  "visibility": "PRIVATE",
+  "folderId": null
 }
 ```
 
@@ -166,8 +202,8 @@ ndex list profiles
 ```
 
 `name` is exactly the string the `profile` argument of the other commands accepts. A `null` username marks an
-anonymous profile. An empty list means `upload` will not work until you add a profile, while `download` and
-`search` will still run anonymously against public NDEx.
+anonymous profile. An empty list means `create` and `update` will not work until you add a profile, while
+`download` and `search` will still run anonymously against public NDEx.
 
 ### From CyREST
 
@@ -175,12 +211,12 @@ The same commands are reachable over CyREST, which is how MCP tooling discovers 
 
 ```
 GET  http://localhost:1234/v1/commands/ndex
-POST http://localhost:1234/v1/commands/ndex/upload%20network
+POST http://localhost:1234/v1/commands/ndex/create%20network
 ```
 
 ### A note on NDEx UUIDs
 
-Uploading a single network — by command or through **File &rarr; Export &rarr; Network to NDEx...** — records
+Saving a single network — by command or through **File &rarr; Export &rarr; Network to NDEx...** — records
 the NDEx UUID against that network. Saving a *collection* records it against the collection instead. A
 network put through both paths therefore ends up associated with two different NDEx networks, and which
 one an update targets depends on which path you use.

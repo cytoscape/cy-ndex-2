@@ -32,7 +32,8 @@ final class NdexCommandFixtures {
 	static List<TaskFactory> allFactories() {
 		NdexProfileResolver resolver = mock(NdexProfileResolver.class);
 		return Arrays.asList(
-				new NDExUploadNetworkCommandTaskFactory(resolver, mock(CyApplicationManager.class)),
+				new NDExCreateNetworkCommandTaskFactory(resolver, mock(CyApplicationManager.class)),
+				new NDExUpdateNetworkCommandTaskFactory(resolver, mock(CyApplicationManager.class)),
 				new NDExDownloadNetworkCommandTaskFactory(resolver, mock(CyNetworkManager.class)),
 				new NDExSearchNetworksCommandTaskFactory(resolver,
 						new NdexServerCapabilities(mock(NdexAdminStatusService.class))),
