@@ -10,13 +10,14 @@ import java.util.UUID;
 
 import javax.ws.rs.core.Response.Status;
 
+import org.cytoscape.cyndex2.internal.CxFormat;
 import org.cytoscape.cyndex2.internal.CxTaskFactoryManager;
 import org.cytoscape.cyndex2.internal.CyActivator;
 import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorType;
 import org.cytoscape.cyndex2.internal.rest.parameter.NDExBasicSaveParameters;
-import org.cytoscape.cyndex2.internal.rest.parameter.NDExSaveParameters;
+import org.cytoscape.cyndex2.internal.util.NdexServerCapabilities;
 import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.io.write.CyNetworkViewWriterFactory;
 import org.cytoscape.io.write.CyWriter;
@@ -38,14 +39,25 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 
 	private final NDExBasicSaveParameters params;
 	private final boolean isUpdate;
+	private final CxTaskFactoryManager cxFactories;
+	private final NdexServerCapabilities serverCapabilities;
 
 	private CyWriter writer;
 	private NetworkExportTask exporter;
 
 	public NDExExportTaskFactory(NDExBasicSaveParameters params, boolean isUpdate) {
+		this(params, isUpdate, CxTaskFactoryManager.INSTANCE,
+				new NdexServerCapabilities(CyServiceModule.getAdminStatusService()));
+	}
+
+	/** For tests: inject the CX factories and the v3 capability probe instead of reaching for singletons. */
+	NDExExportTaskFactory(NDExBasicSaveParameters params, boolean isUpdate, CxTaskFactoryManager cxFactories,
+			NdexServerCapabilities serverCapabilities) {
 		super();
 		this.params = params;
 		this.isUpdate = isUpdate;
+		this.cxFactories = cxFactories;
+		this.serverCapabilities = serverCapabilities;
 	}
 
 	private void setTunables(CyWriter writer, boolean collection) {
@@ -82,7 +94,7 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 			
 		}
 
-		if (setWriteSiblingsMethod != null) {
+		if (setUseCxIdMethod != null) {
 			try {
 				setUseCxIdMethod.invoke(writer, !collection);
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
@@ -99,7 +111,16 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 			ByteArrayOutputStream out = new ByteArrayOutputStream();
 			@Override
 			public void run(TaskMonitor taskMonitor) throws Exception {
-				CyNetworkViewWriterFactory writerFactory = CxTaskFactoryManager.INSTANCE.getCxWriterFactory();
+				// CX2 carries a single network; a collection needs CX1, which can hold sibling sub-networks.
+				final CxFormat format = writeCollection ? CxFormat.CX1 : CxFormat.CX2;
+				if (format == CxFormat.CX2) {
+					serverCapabilities.requireV3(params.serverUrl);
+				}
+				CyNetworkViewWriterFactory writerFactory = cxFactories.getWriterFactory(format);
+				if (writerFactory == null) {
+					throw new IllegalStateException("No " + format + " writer is available. Install or update the "
+							+ "CX Support app to version " + format.getRequiredCxSupportVersion() + " or newer.");
+				}
 				writer = writerFactory.createWriter(out, network);
 				setTunables(writer, writeCollection);
 				
@@ -111,7 +132,8 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 						 UserAgentUtil.getUserAgent());
 				NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(client);
 				
-				exporter = new NetworkExportTask(mal, network.getSUID(), in, params, writeCollection, isUpdate);
+				exporter = new NetworkExportTask(mal, network.getSUID(), in, params, writeCollection, isUpdate,
+						format);
 				getTaskIterator().append(exporter);
 			}
 			@Override
@@ -166,9 +188,10 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 		if (params.metadata == null) {
 			params.metadata = new HashMap<>();
 		}
-		if (params instanceof NDExSaveParameters && ((NDExSaveParameters) params).isPublic == null) {
-			((NDExSaveParameters) params).isPublic = true;
-		}
+		// Deliberately no default for isPublic. It was dead for years, so callers that omit it have always
+		// got whatever visibility NDEx applies by default; defaulting it to true now that visibility is
+		// live would start silently publishing their networks.
+
 	}
 	
 	private final static void saveMetadata(String columnName, String value, CyNetwork network) {
@@ -186,6 +209,11 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 
 		// Set the value to local table
 		row.set(columnName, value);
+	}
+
+	/** The folder the network was placed in, or null when none was requested. */
+	public UUID getFolderId() {
+		return exporter == null ? null : exporter.getFolderId();
 	}
 
 	public UUID getUUID() {

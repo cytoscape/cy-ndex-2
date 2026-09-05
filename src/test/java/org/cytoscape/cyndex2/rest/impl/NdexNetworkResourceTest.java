@@ -2,7 +2,6 @@ package org.cytoscape.cyndex2.rest.impl;
 
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.ci.CIResponseFactory;
-import org.cytoscape.cyndex2.internal.CxTaskFactoryManager;
 import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.rest.NdexClient;
 import org.cytoscape.cyndex2.internal.rest.SimpleNetworkSummary;
@@ -19,9 +18,9 @@ import org.cytoscape.cyndex2.internal.task.NDExImportTaskFactory;
 import org.cytoscape.cyndex2.internal.util.CIServiceManager;
 import org.cytoscape.ding.NetworkViewTestSupport;
 import org.cytoscape.io.read.AbstractCyNetworkReader;
-import org.cytoscape.io.read.InputStreamTaskFactory;
 import org.cytoscape.io.write.CyWriter;
 import org.cytoscape.model.CyColumn;
+import org.cytoscape.io.read.CyNetworkReaderManager;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.model.CyRow;
@@ -46,6 +45,8 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
@@ -69,6 +70,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response.Status;
 
 public class NdexNetworkResourceTest {
+
+	private final CyNetworkReaderManager networkReaderManager = mock(CyNetworkReaderManager.class);
 	
 	protected NetworkTestSupport nts = new NetworkTestSupport();
 	protected NetworkViewTestSupport nvts = new NetworkViewTestSupport();
@@ -111,9 +114,11 @@ public class NdexNetworkResourceTest {
 	DialogTaskManager dtm;
 	
 
+	private ErrorBuilder errorBuilder;
+
 	@Before
 	public void prepMocks() {
-		ErrorBuilder errorBuilder = mock(ErrorBuilder.class);
+		errorBuilder = mock(ErrorBuilder.class);
 		
 		doAnswer(new Answer<WebApplicationException>() {
 			public WebApplicationException answer(InvocationOnMock invocation) {
@@ -291,7 +296,7 @@ public class NdexNetworkResourceTest {
 	@Test
 	public void testGetCurrentNetworkSummary() {
 		
-		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager);
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
 		CISummaryResponse ciSummaryResponse = impl.getCurrentNetworkSummary();
 		
 		assertEquals(Long.valueOf(669l),ciSummaryResponse.data.currentNetworkSuid);
@@ -314,7 +319,7 @@ public class NdexNetworkResourceTest {
 	
 	@Test
 	public void testCreateNetworkFromNdex() {
-		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager);
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
 		NdexNetworkResourceImpl implSpy = Mockito.spy(impl);
 		
 		Map<String, String> meta = new HashMap<String, String>();
@@ -353,7 +358,7 @@ public class NdexNetworkResourceTest {
 	
 	@Test
 	public void testCurrentNetworkToNdex() {
-		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager);
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
 		NdexNetworkResourceImpl implSpy = Mockito.spy(impl);
 	
 		Map<String, String> meta = new HashMap<String, String>();
@@ -391,40 +396,46 @@ public class NdexNetworkResourceTest {
 	public void testCreateNetworkFromCX() {
 		
 		
-		InputStreamTaskFactory inputStreamTaskFactory = mock(InputStreamTaskFactory.class);
-		AbstractCyNetworkReader readerTask = mock(AbstractCyNetworkReader.class); 
+		AbstractCyNetworkReader readerTask = mock(AbstractCyNetworkReader.class);
 		CyNetwork cyNetwork = mock(CyNetwork.class);
-		CyNetwork[] cyNetworks = {cyNetwork};
-		when(readerTask.getNetworks()).thenReturn(cyNetworks);
-		
-		TaskIterator taskIterator = new TaskIterator();
-		taskIterator.append(readerTask);
-	
-		Map<String, String> properties = new HashMap<String, String>();
-		properties.put("id", "cytoscapeCxNetworkReaderFactory");
-		
-		when(inputStreamTaskFactory.createTaskIterator(any(InputStream.class), anyObject())).thenReturn(taskIterator);
-	
-		CxTaskFactoryManager.INSTANCE.addReaderFactory(inputStreamTaskFactory, properties);
-		
-		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager);
+		when(readerTask.getNetworks()).thenReturn(new CyNetwork[] { cyNetwork });
+
+		// The caller chooses the CX version, so the endpoint hands the stream to the platform's
+		// reader manager and uses whatever reader it negotiates -- CX1 or CX2.
 		InputStream inputStream = mock(InputStream.class);
-		
+		when(networkReaderManager.getReader(any(InputStream.class), anyObject())).thenReturn(readerTask);
+
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
+
 		CINdexBaseResponse response = impl.createNetworkFromCx(inputStream);
-		
-		System.out.println(response.data);
-		
-		verify(inputStreamTaskFactory).createTaskIterator(inputStream, null);
-		
+		assertNotNull(response.data);
+
+		// the caller's stream reaches the manager untouched
+		verify(networkReaderManager).getReader(eq(inputStream), anyObject());
 		verify(networkManager).addNetwork(cyNetwork);
 		verify(readerTask).buildCyNetworkView(cyNetwork);
-		
+	}
+
+	@Test
+	public void testCreateNetworkFromCxRejectsAnUnreadableStream() {
+		InputStream inputStream = mock(InputStream.class);
+		when(networkReaderManager.getReader(any(InputStream.class), anyObject())).thenReturn(null);
+
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
+		try {
+			impl.createNetworkFromCx(inputStream);
+			fail("expected a WebApplicationException");
+		} catch (WebApplicationException expected) {
+			// the shared mock builder yields a bare exception, so assert on what the endpoint asked for
+			verify(errorBuilder).buildException(eq(Status.BAD_REQUEST), any(String.class),
+					eq(ErrorType.INVALID_PARAMETERS));
+		}
 	}
 	
 	@Test
 	public void testGetNetworkSummary() {
 		
-		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager);
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
 		CISummaryResponse ciSummaryResponse = impl.getNetworkSummary(669l);
 		
 		assertEquals(Long.valueOf(669l),ciSummaryResponse.data.currentNetworkSuid);
@@ -448,7 +459,7 @@ public class NdexNetworkResourceTest {
 	@Test
 	public void testGetRootNetworkSummary() {
 		
-		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager);
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager, ciServiceManager, networkReaderManager);
 		CISummaryResponse ciSummaryResponse = impl.getNetworkSummary(668l);
 		
 		assertEquals(null,ciSummaryResponse.data.currentNetworkSuid);

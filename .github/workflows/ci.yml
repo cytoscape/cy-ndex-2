@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - develop
   pull_request:
     branches:
       - master
+      - develop
 
 jobs:
   test:
@@ -24,4 +26,4 @@ jobs:
         cache: 'maven'
 
     - name: Run tests
-      run: xvfb-run mvn test
+      run: xvfb-run make test
