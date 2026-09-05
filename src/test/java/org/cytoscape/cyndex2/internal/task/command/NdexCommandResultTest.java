@@ -51,7 +51,7 @@ public class NdexCommandResultTest {
 
 	private static NdexProfileResolver resolverFor(Server server) {
 		NdexProfileResolver resolver = mock(NdexProfileResolver.class);
-		// upload requires a real profile; download may fall back to anonymous
+		// saving requires a real profile; download may fall back to anonymous
 		when(resolver.resolve(any(String.class))).thenReturn(server);
 		when(resolver.resolve(null)).thenReturn(server);
 		when(resolver.resolveOrAnonymous(any(String.class))).thenReturn(server);
@@ -76,7 +76,7 @@ public class NdexCommandResultTest {
 	}
 
 	@Test
-	public void uploadReportsItsOwnJsonNotTheDelegatesUuidString() throws Exception {
+	public void createReportsItsOwnJsonNotTheDelegatesUuidString() throws Exception {
 		UUID uuid = UUID.randomUUID();
 		ObservableDelegate delegate = new ObservableDelegate();
 		NDExExportTaskFactory exportFactory = mock(NDExExportTaskFactory.class);
@@ -87,7 +87,7 @@ public class NdexCommandResultTest {
 		CyApplicationManager appManager = mock(CyApplicationManager.class);
 		when(appManager.getCurrentNetwork()).thenReturn(mock(CyNetwork.class));
 
-		NDExUploadNetworkCommandTask task = new NDExUploadNetworkCommandTask(
+		NDExCreateNetworkCommandTask task = new NDExCreateNetworkCommandTask(
 				resolverFor(signedInServer()), appManager, (params, isUpdate) -> exportFactory);
 		task.run(taskMonitor);
 
@@ -103,7 +103,7 @@ public class NdexCommandResultTest {
 	}
 
 	@Test
-	public void uploadReturnsAUsableUrlEvenWhenTheProfileStoresABareHost() throws Exception {
+	public void createReturnsAUsableUrlEvenWhenTheProfileStoresABareHost() throws Exception {
 		// Profiles keep the URL exactly as typed, so "www.ndexbio.org" with no scheme is normal --
 		// and without one the returned url is not a link.
 		UUID uuid = UUID.randomUUID();
@@ -120,7 +120,7 @@ public class NdexCommandResultTest {
 		bareHost.setPassword("secret");
 		bareHost.setUrl("www.ndexbio.org");
 
-		NDExUploadNetworkCommandTask task = new NDExUploadNetworkCommandTask(
+		NDExCreateNetworkCommandTask task = new NDExCreateNetworkCommandTask(
 				resolverFor(bareHost), appManager, (params, isUpdate) -> exportFactory);
 		task.run(taskMonitor);
 
@@ -129,7 +129,7 @@ public class NdexCommandResultTest {
 	}
 
 	@Test
-	public void uploadPassesVisibilityFolderAndNetworkIdThrough() throws Exception {
+	public void updatePassesVisibilityFolderAndNetworkIdThrough() throws Exception {
 		NDExExportTaskFactory exportFactory = mock(NDExExportTaskFactory.class);
 		when(exportFactory.createTaskIterator(any(CyNetwork.class)))
 				.thenReturn(new TaskIterator(new ObservableDelegate()));
@@ -145,7 +145,7 @@ public class NdexCommandResultTest {
 			return exportFactory;
 		};
 
-		NDExUploadNetworkCommandTask task = new NDExUploadNetworkCommandTask(
+		NDExUpdateNetworkCommandTask task = new NDExUpdateNetworkCommandTask(
 				resolverFor(signedInServer()), appManager, supplier);
 		task.visibility.setSelectedValue("UNLISTED");
 		task.folder = "My Project";
@@ -199,33 +199,45 @@ public class NdexCommandResultTest {
 		}
 	}
 
+	/** Both write commands share these preconditions, so assert them on both rather than on one. */
+	private static java.util.List<AbstractNdexNetworkWriteTask> writeTasks(NdexProfileResolver resolver,
+			CyApplicationManager appManager) {
+		NDExUpdateNetworkCommandTask update = new NDExUpdateNetworkCommandTask(
+				resolver, appManager, (params, isUpdate) -> null);
+		update.networkId = "12345678-abcd-1234-abcd-1234567890ab";
+		return java.util.Arrays.asList(
+				new NDExCreateNetworkCommandTask(resolver, appManager, (params, isUpdate) -> null), update);
+	}
+
 	@Test
-	public void uploadRequiresACurrentNetwork() {
+	public void bothWriteCommandsRequireACurrentNetwork() {
 		CyApplicationManager appManager = mock(CyApplicationManager.class);
-		NDExUploadNetworkCommandTask task = new NDExUploadNetworkCommandTask(
-				resolverFor(signedInServer()), appManager, (params, isUpdate) -> null);
-		try {
-			task.run(taskMonitor);
-			org.junit.Assert.fail("expected IllegalArgumentException");
-		} catch (Exception e) {
-			assertTrue(e.getMessage(), e.getMessage().contains("No current network"));
+		for (AbstractNdexNetworkWriteTask task : writeTasks(resolverFor(signedInServer()), appManager)) {
+			try {
+				task.run(taskMonitor);
+				org.junit.Assert.fail("expected IllegalArgumentException from "
+						+ task.getClass().getSimpleName());
+			} catch (Exception e) {
+				assertTrue(e.getMessage(), e.getMessage().contains("No current network"));
+			}
 		}
 	}
 
 	@Test
-	public void uploadRequiresASignedInProfile() {
+	public void bothWriteCommandsRequireASignedInProfile() {
 		Server anonymous = new Server();
 		anonymous.setUrl("https://www.ndexbio.org/v2");
 		CyApplicationManager appManager = mock(CyApplicationManager.class);
 		when(appManager.getCurrentNetwork()).thenReturn(mock(CyNetwork.class));
 
-		NDExUploadNetworkCommandTask task = new NDExUploadNetworkCommandTask(
-				resolverFor(anonymous), appManager, (params, isUpdate) -> null);
-		try {
-			task.run(taskMonitor);
-			org.junit.Assert.fail("expected IllegalArgumentException");
-		} catch (Exception e) {
-			assertTrue(e.getMessage(), e.getMessage().contains("not signed in"));
+		for (AbstractNdexNetworkWriteTask task : writeTasks(resolverFor(anonymous), appManager)) {
+			try {
+				task.run(taskMonitor);
+				org.junit.Assert.fail("expected IllegalArgumentException from "
+						+ task.getClass().getSimpleName());
+			} catch (Exception e) {
+				assertTrue(e.getMessage(), e.getMessage().contains("not signed in"));
+			}
 		}
 	}
 

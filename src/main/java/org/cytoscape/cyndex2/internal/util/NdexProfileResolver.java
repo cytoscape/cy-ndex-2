@@ -90,10 +90,11 @@ public class NdexProfileResolver {
 	private String noConfiguredProfileMessage() {
 		if (availableServers.get().getSize() == 0) {
 			return "No NDEx profiles are defined in CyNDEx-2. Sign in through the CyNDEx-2 toolbar in Cytoscape "
-					+ "to add one, then retry. Run 'ndex list profiles' to check.";
+					+ "to add one, then retry.";
 		}
 		return "No NDEx profile is selected in CyNDEx-2. Select one in the CyNDEx-2 toolbar, or name one with "
-				+ "the 'profile' parameter as username@serverUrl. Run 'ndex list profiles' to see them.";
+				+ "the 'profile' parameter as username@serverUrl. The configured profiles are listed in "
+				+ "CyNDEx-2.";
 	}
 
 	/** The {@code username@serverUrl} name of a profile; anonymous profiles have an empty username. */

@@ -78,7 +78,9 @@ public class NdexProfileResolverTest {
 			fail("expected IllegalArgumentException");
 		} catch (IllegalArgumentException e) {
 			assertTrue(e.getMessage(), e.getMessage().contains("No NDEx profiles are defined"));
-			assertTrue(e.getMessage(), e.getMessage().contains("ndex list profiles"));
+			// the remedy, stated as a capability rather than as the name of another command
+			assertTrue(e.getMessage(), e.getMessage().contains("Sign in through the CyNDEx-2 toolbar"));
+			assertFalse(e.getMessage(), e.getMessage().contains("ndex list profiles"));
 		}
 	}
 
@@ -91,7 +93,8 @@ public class NdexProfileResolverTest {
 			fail("expected IllegalArgumentException");
 		} catch (IllegalArgumentException e) {
 			assertTrue(e.getMessage(), e.getMessage().contains("No NDEx profile is selected"));
-			assertTrue(e.getMessage(), e.getMessage().contains("ndex list profiles"));
+			assertTrue(e.getMessage(), e.getMessage().contains("'profile' parameter"));
+			assertFalse(e.getMessage(), e.getMessage().contains("ndex list profiles"));
 		}
 	}
 

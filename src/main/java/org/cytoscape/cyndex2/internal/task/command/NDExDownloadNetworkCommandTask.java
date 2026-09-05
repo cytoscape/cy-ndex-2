@@ -30,7 +30,7 @@ public class NDExDownloadNetworkCommandTask extends AbstractNdexCommandTask {
 					+ "When omitted, the profile currently selected in CyNDEx-2 is used; if none is selected and "
 					+ "none are configured, this runs anonymously against the public NDEx server at "
 					+ "https://www.ndexbio.org, which can only reach public networks. "
-					+ "Run 'ndex list profiles' to see the configured profiles.",
+					+ "Check which sign-in profiles are configured in CyNDEx-2 if you need one.",
 			exampleStringValue = "alice@https://www.ndexbio.org/v2",
 			required = false)
 	public String profile = null;

@@ -46,7 +46,7 @@ public class NDExSearchNetworksCommandTask extends AbstractNdexCommandTask {
 					+ "When omitted, the profile currently selected in CyNDEx-2 is used; if none is selected and "
 					+ "none are configured, this runs anonymously against the public NDEx server at "
 					+ "https://www.ndexbio.org, which can only reach public networks. "
-					+ "Run 'ndex list profiles' to see the configured profiles.",
+					+ "Check which sign-in profiles are configured in CyNDEx-2 if you need one.",
 			exampleStringValue = "alice@https://www.ndexbio.org/v2",
 			required = false)
 	public String profile = null;
@@ -114,7 +114,8 @@ public class NDExSearchNetworksCommandTask extends AbstractNdexCommandTask {
 		if (visibilityFilter == FileVisibilityType.PRIVATE && server.getUsername() == null) {
 			throw new IllegalArgumentException("Searching PRIVATE networks requires a signed-in NDEx profile, "
 					+ "but the profile in use is anonymous. Sign in through CyNDEx-2, or name a signed-in "
-					+ "profile with the 'profile' parameter. Run 'ndex list profiles' to see them.");
+					+ "profile with the 'profile' parameter; the configured profiles are listed in "
+					+ "CyNDEx-2.");
 		}
 		serverCapabilities.requireV3(server.getUrl());
 

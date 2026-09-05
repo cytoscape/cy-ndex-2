@@ -30,8 +30,9 @@ public class NdexCommandPropertiesTest {
 
 	@Test
 	public void eachCommandRegistersUnderTheNdexNamespaceWithItsName() {
-		assertEquals("ndex", NdexCommandProperties.uploadNetwork().getProperty(COMMAND_NAMESPACE));
-		assertEquals("upload network", NdexCommandProperties.uploadNetwork().getProperty(COMMAND));
+		assertEquals("ndex", NdexCommandProperties.createNetwork().getProperty(COMMAND_NAMESPACE));
+		assertEquals("create network", NdexCommandProperties.createNetwork().getProperty(COMMAND));
+		assertEquals("update network", NdexCommandProperties.updateNetwork().getProperty(COMMAND));
 		assertEquals("download network", NdexCommandProperties.downloadNetwork().getProperty(COMMAND));
 		assertEquals("search networks", NdexCommandProperties.searchNetworks().getProperty(COMMAND));
 		for (Properties props : all()) {
@@ -76,8 +77,42 @@ public class NdexCommandPropertiesTest {
 	// ---------- the descriptions an agent reads to decide what to do ----------
 
 	@Test
-	public void uploadStatesThatItNeedsASignedInProfile() {
-		assertTrue(longDescriptionOf(NdexCommandProperties.uploadNetwork()).contains("signed-in profile"));
+	public void bothWriteCommandsStateThatTheyNeedASignedInProfile() {
+		for (Properties props : Arrays.asList(NdexCommandProperties.createNetwork(),
+				NdexCommandProperties.updateNetwork())) {
+			assertTrue(props.getProperty(COMMAND), longDescriptionOf(props).contains("signed-in profile"));
+		}
+	}
+
+	/**
+	 * The split exists so a caller handed an ambiguous "save this to NDEx" cannot silently pick one.
+	 * Each description has to say which of the two it is, in terms a reader can act on.
+	 */
+	@Test
+	public void createSaysItMakesANewNetworkAndUpdateSaysItReplacesAnExistingOne() {
+		String create = longDescriptionOf(NdexCommandProperties.createNetwork());
+		assertTrue(create, create.contains("NEW network"));
+		assertTrue(create, create.contains("never changes an existing NDEx network"));
+
+		String update = longDescriptionOf(NdexCommandProperties.updateNetwork());
+		assertTrue(update, update.contains("Replaces the content"));
+		assertTrue(update, update.contains("never creates a network"));
+	}
+
+	/** Neither may present itself as the safe default: an ambiguous request has to go back to the user. */
+	@Test
+	public void neitherWriteCommandOffersItselfAsTheDefaultForAnAmbiguousRequest() {
+		for (Properties props : Arrays.asList(NdexCommandProperties.createNetwork(),
+				NdexCommandProperties.updateNetwork())) {
+			String description = longDescriptionOf(props);
+			assertTrue(props.getProperty(COMMAND), description.contains("different operation"));
+		}
+	}
+
+	@Test
+	public void updateStatesThatNetworkIdIsRequired() {
+		String update = longDescriptionOf(NdexCommandProperties.updateNetwork());
+		assertTrue(update, update.contains("networkId argument is required"));
 	}
 
 	@Test
@@ -95,15 +130,33 @@ public class NdexCommandPropertiesTest {
 	public void listProfilesExplainsWhatAnEmptyListMeans() {
 		String description = longDescriptionOf(NdexCommandProperties.listProfiles());
 		assertTrue(description, description.contains("empty list"));
-		assertTrue(description, description.contains("upload"));
+		assertTrue(description, description.contains("saving a network to NDEx cannot work"));
 		assertTrue(description, description.contains("anonymously"));
 	}
 
+	/**
+	 * Naming a sibling command in a description couples it to a name that can change, and tells a
+	 * caller which tool to reach for when it has its own catalog and can search it. Descriptions state
+	 * the need instead. Asserted over every command so a cross-reference cannot creep back in.
+	 */
 	@Test
-	public void everyCommandPointsAtTheProfileListing() {
-		for (Properties props : NdexCommandProperties.serverCommands()) {
-			assertTrue(props.getProperty(COMMAND),
-					longDescriptionOf(props).contains("ndex list profiles"));
+	public void noDescriptionNamesAnotherNdexCommand() {
+		List<String> commandNames = Arrays.asList(
+				NdexCommandProperties.CREATE_NETWORK, NdexCommandProperties.UPDATE_NETWORK,
+				NdexCommandProperties.DOWNLOAD_NETWORK, NdexCommandProperties.SEARCH_NETWORKS,
+				NdexCommandProperties.LIST_PROFILES);
+		for (Properties props : all()) {
+			String self = props.getProperty(COMMAND);
+			for (String other : commandNames) {
+				if (other.equals(self)) {
+					continue;
+				}
+				String qualified = NdexCommandProperties.NAMESPACE + " " + other;
+				assertFalse(self + " names the '" + qualified + "' command",
+						longDescriptionOf(props).contains(qualified));
+				assertFalse(self + " names the '" + qualified + "' command",
+						props.getProperty(COMMAND_DESCRIPTION).contains(qualified));
+			}
 		}
 	}
 
@@ -118,15 +171,19 @@ public class NdexCommandPropertiesTest {
 		assertEquals("NdexCommandProperties.all() and NdexCommandFixtures must list the same commands",
 				NdexCommandFixtures.allFactories().size(), declared.size());
 		assertEquals(new java.util.HashSet<>(Arrays.asList(
-				NdexCommandProperties.UPLOAD_NETWORK, NdexCommandProperties.DOWNLOAD_NETWORK,
-				NdexCommandProperties.SEARCH_NETWORKS, NdexCommandProperties.LIST_PROFILES)), declared);
+				NdexCommandProperties.CREATE_NETWORK, NdexCommandProperties.UPDATE_NETWORK,
+				NdexCommandProperties.DOWNLOAD_NETWORK, NdexCommandProperties.SEARCH_NETWORKS,
+				NdexCommandProperties.LIST_PROFILES)), declared);
 	}
 
 	@Test
-	public void uploadStatesTheSingleNetworkConstraint() {
-		final String longDescription = NdexCommandProperties.uploadNetwork().getProperty(COMMAND_LONG_DESCRIPTION);
-		assertTrue(longDescription, longDescription.contains("single network"));
-		assertTrue(longDescription, longDescription.contains("not a network collection"));
+	public void bothWriteCommandsStateTheSingleNetworkConstraint() {
+		for (Properties props : Arrays.asList(NdexCommandProperties.createNetwork(),
+				NdexCommandProperties.updateNetwork())) {
+			final String longDescription = props.getProperty(COMMAND_LONG_DESCRIPTION);
+			assertTrue(longDescription, longDescription.contains("single network"));
+			assertTrue(longDescription, longDescription.contains("not a network collection"));
+		}
 	}
 
 	@Test

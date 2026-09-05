@@ -49,10 +49,30 @@ public class NdexCommandStructureTest {
 	 * a factory is silently invisible to /v1/commands and to the Swagger MCP tooling reads, so the
 	 * parameters would vanish without any compile or runtime error.
 	 */
+	/**
+	 * Both the fields a class declares and the public ones it inherits: the executor discovers with
+	 * getFields(), which sees inherited public fields, while a private @Tunable declared on a factory
+	 * is invisible to the executor for a different reason and is just as wrong.
+	 */
+	private static List<Field> tunableFieldsOf(Class<?> type) {
+		List<Field> fields = new ArrayList<>();
+		for (Field field : type.getDeclaredFields()) {
+			if (field.isAnnotationPresent(Tunable.class)) {
+				fields.add(field);
+			}
+		}
+		for (Field field : type.getFields()) {
+			if (field.isAnnotationPresent(Tunable.class) && !fields.contains(field)) {
+				fields.add(field);
+			}
+		}
+		return fields;
+	}
+
 	@Test
 	public void everyTunableIsDeclaredOnTheTaskAndNoneOnTheFactory() {
 		for (TaskFactory factory : factories()) {
-			for (Field field : factory.getClass().getDeclaredFields()) {
+			for (Field field : tunableFieldsOf(factory.getClass())) {
 				assertFalse(factory.getClass().getSimpleName() + "." + field.getName()
 						+ " is a @Tunable on a TaskFactory, where the command executor cannot see it",
 						field.isAnnotationPresent(Tunable.class));
@@ -60,6 +80,26 @@ public class NdexCommandStructureTest {
 			List<Task> tasks = tasksOf(factory);
 			assertEquals(factory.getClass().getSimpleName(), 1, tasks.size());
 		}
+	}
+
+	/** A factory with a @Tunable it inherited rather than declared -- the case getDeclaredFields misses. */
+	public static class FactoryWithInheritedTunable extends FactoryWithTunable {
+	}
+
+	public static class FactoryWithTunable {
+		@Tunable(description = "wrong place")
+		public String stray = null;
+	}
+
+	/**
+	 * A guard that passes is not proof of a guard that works. Run the deliberately-wrong shapes through
+	 * the same helper the real assertions use, and require it to see them.
+	 */
+	@Test
+	public void theTunableScanSeesBothDeclaredAndInheritedFields() {
+		assertEquals(1, tunableFieldsOf(FactoryWithTunable.class).size());
+		assertEquals("an inherited @Tunable must not escape the factory guard",
+				1, tunableFieldsOf(FactoryWithInheritedTunable.class).size());
 	}
 
 	/**
@@ -71,14 +111,14 @@ public class NdexCommandStructureTest {
 	public void everyArgumentTakingCommandDeclaresItsTunablesOnTheTask() {
 		int withArguments = 0;
 		for (Task task : NdexCommandFixtures.allTasks()) {
-			long tunables = Arrays.stream(task.getClass().getDeclaredFields())
-					.filter(f -> f.isAnnotationPresent(Tunable.class))
-					.count();
+			// getFields(), not getDeclaredFields(): the shared arguments of the create and update
+			// commands are inherited from a base class, and that is exactly how the executor reads them.
+			long tunables = tunableFieldsOf(task.getClass()).size();
 			if (tunables > 0) {
 				withArguments++;
 			}
 		}
-		assertEquals("upload, download and search all take arguments", 3, withArguments);
+		assertEquals("create, update, download and search all take arguments", 4, withArguments);
 	}
 
 	/**
@@ -93,7 +133,8 @@ public class NdexCommandStructureTest {
 		CyNetworkManager networkManager = mock(CyNetworkManager.class);
 		NdexAdminStatusService adminStatus = mock(NdexAdminStatusService.class);
 
-		assertNotNull(new NDExUploadNetworkCommandTaskFactory(resolver, appManager).createTaskIterator());
+		assertNotNull(new NDExCreateNetworkCommandTaskFactory(resolver, appManager).createTaskIterator());
+		assertNotNull(new NDExUpdateNetworkCommandTaskFactory(resolver, appManager).createTaskIterator());
 		assertNotNull(new NDExDownloadNetworkCommandTaskFactory(resolver, networkManager).createTaskIterator());
 		assertNotNull(new NDExSearchNetworksCommandTaskFactory(resolver,
 				new NdexServerCapabilities(adminStatus)).createTaskIterator());
@@ -107,9 +148,56 @@ public class NdexCommandStructureTest {
 	@Test
 	public void creatingTheTaskIteratorSucceedsWithNoCurrentNetwork() {
 		CyApplicationManager appManager = mock(CyApplicationManager.class); // getCurrentNetwork() -> null
-		TaskIterator iterator = new NDExUploadNetworkCommandTaskFactory(
-				mock(NdexProfileResolver.class), appManager).createTaskIterator();
-		assertTrue(iterator.hasNext());
+		assertTrue(new NDExCreateNetworkCommandTaskFactory(
+				mock(NdexProfileResolver.class), appManager).createTaskIterator().hasNext());
+		assertTrue(new NDExUpdateNetworkCommandTaskFactory(
+				mock(NdexProfileResolver.class), appManager).createTaskIterator().hasNext());
+	}
+
+	/**
+	 * The create and update commands inherit profile/visibility/folder from a shared base. Inherited
+	 * public fields are discovered -- but only while they stay public, and a field quietly narrowed to
+	 * protected would drop out of the command's arguments with no error anywhere.
+	 */
+	@Test
+	public void bothWriteCommandsExposeTheSharedArgumentsThroughGetFields() {
+		for (Class<?> type : Arrays.asList(NDExCreateNetworkCommandTask.class,
+				NDExUpdateNetworkCommandTask.class)) {
+			List<String> names = new ArrayList<>();
+			for (Field field : type.getFields()) {
+				if (field.isAnnotationPresent(Tunable.class)) {
+					names.add(field.getName());
+				}
+			}
+			assertTrue(type.getSimpleName() + " -> " + names, names.contains("profile"));
+			assertTrue(type.getSimpleName() + " -> " + names, names.contains("visibility"));
+			assertTrue(type.getSimpleName() + " -> " + names, names.contains("folder"));
+		}
+	}
+
+	/** The whole point of the split: only one of the two takes a target id. */
+	@Test
+	public void onlyUpdateDeclaresNetworkId() {
+		List<String> createArguments = new ArrayList<>();
+		for (Field field : tunableFieldsOf(NDExCreateNetworkCommandTask.class)) {
+			createArguments.add(field.getName());
+		}
+		assertFalse("create must offer no way to name an existing network",
+				createArguments.contains("networkId"));
+
+		List<String> updateArguments = new ArrayList<>();
+		for (Field field : tunableFieldsOf(NDExUpdateNetworkCommandTask.class)) {
+			updateArguments.add(field.getName());
+		}
+		assertTrue(updateArguments.toString(), updateArguments.contains("networkId"));
+	}
+
+	/** required=true is metadata only, but it is what a caller reads when deciding what to send. */
+	@Test
+	public void updateMarksNetworkIdRequiredInTheSchema() throws Exception {
+		Tunable tunable = NDExUpdateNetworkCommandTask.class.getField("networkId")
+				.getAnnotation(Tunable.class);
+		assertTrue(tunable.required());
 	}
 
 	@Test
