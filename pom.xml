@@ -104,6 +104,20 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${maven-surefire-plugin.version}</version>
+				<configuration>
+					<!--
+						Tests must never touch a real display. NetworkImportTask builds the network view with
+						SwingUtilities.invokeAndWait, which blocks with no timeout until the EDT runs it; when the
+						toolkit initialises against an X server that is slow or wedged, that wait never returns and
+						the build hangs mid-suite rather than failing. Headless AWT still provides an EDT, so the
+						code under test behaves the same without depending on a display being there.
+					-->
+					<systemPropertyVariables>
+						<java.awt.headless>true</java.awt.headless>
+					</systemPropertyVariables>
+					<!-- and if a forked JVM still will not exit, fail instead of waiting forever -->
+					<forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
