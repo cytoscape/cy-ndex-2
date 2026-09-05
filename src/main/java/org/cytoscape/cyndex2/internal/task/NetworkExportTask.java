@@ -32,6 +32,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.UUID;
 
 import org.cytoscape.cyndex2.internal.CyServiceModule;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.cytoscape.cyndex2.internal.CxFormat;
+import org.cytoscape.cyndex2.internal.rest.parameter.NDExSaveParameters;
+import org.ndexbio.model.object.MoveNetworksRequest;
+import org.ndexbio.model.object.NdexFolder;
+import org.ndexbio.model.object.network.VisibilityType;
 import org.cytoscape.cyndex2.internal.rest.parameter.NDExBasicSaveParameters;
 import org.cytoscape.cyndex2.internal.util.NDExNetworkManager;
 import org.cytoscape.model.CyNetwork;
@@ -51,17 +60,34 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 
 public class NetworkExportTask extends AbstractTask implements ObservableTask{
 
+	private static final int FOLDER_LOOKUP_LIMIT = 500;
+
 	private final InputStream cxStream;
 	private final NDExBasicSaveParameters params;
 	private final Long suid;
 	private final boolean isUpdate;
 	private final NdexRestClientModelAccessLayer mal;
 	private final boolean writeCollection;
+	private final CxFormat format;
+	private final CyNetworkManager networkManager;
 	
 	private UUID networkUUID = null;
+	private UUID folderId = null;
 	
 	
 	public NetworkExportTask(NdexRestClientModelAccessLayer mal, Long suid, InputStream cxStream, NDExBasicSaveParameters params, boolean writeCollection, boolean isUpdate) throws JsonProcessingException, IOException, NdexException 
+			 {
+		this(mal, suid, cxStream, params, writeCollection, isUpdate, CxFormat.CX1);
+	}
+
+	public NetworkExportTask(NdexRestClientModelAccessLayer mal, Long suid, InputStream cxStream, NDExBasicSaveParameters params, boolean writeCollection, boolean isUpdate, CxFormat format) throws JsonProcessingException, IOException, NdexException 
+			 {
+		this(mal, suid, cxStream, params, writeCollection, isUpdate, format,
+				CyServiceModule.getService(CyNetworkManager.class));
+	}
+
+	/** For tests: inject the network manager instead of resolving it from the CyServiceModule singleton. */
+	NetworkExportTask(NdexRestClientModelAccessLayer mal, Long suid, InputStream cxStream, NDExBasicSaveParameters params, boolean writeCollection, boolean isUpdate, CxFormat format, CyNetworkManager networkManager) throws JsonProcessingException, IOException, NdexException 
 			 {
 		super();
 		this.params = params;
@@ -70,7 +96,8 @@ public class NetworkExportTask extends AbstractTask implements ObservableTask{
 		this.cxStream = cxStream;
 		this.suid = suid;
 		this.mal = mal;
-	
+		this.format = format;
+		this.networkManager = networkManager;
 	}
 
 	@Override
@@ -87,8 +114,7 @@ public class NetworkExportTask extends AbstractTask implements ObservableTask{
 	public void run(TaskMonitor taskMonitor) throws NetworkExportException, InvocationTargetException, InterruptedException, IOException {
 		networkUUID = null;
 		taskMonitor.setTitle("Exporting CX network to NDEx...");
-		CyNetworkManager net_manager = CyServiceModule.getService(CyNetworkManager.class);
-		CyNetwork network = net_manager.getNetwork(suid);
+		CyNetwork network = networkManager.getNetwork(suid);
 		
 		CyRootNetwork rootNetwork = ((CySubNetwork) network).getRootNetwork();
 
@@ -116,20 +142,49 @@ public class NetworkExportTask extends AbstractTask implements ObservableTask{
 			taskMonitor.setStatusMessage("Uploading network to NDEx");
 			
 			final CyNetwork referenceNetwork = writeCollection ? rootNetwork : network;
+			final VisibilityType visibility = resolveVisibility();
+			folderId = resolveFolderId();
+
 			if (!isUpdate) {
-				networkUUID = mal.createCXNetwork(cxStream);
+				networkUUID = (format == CxFormat.CX2)
+						? mal.createCX2Network(cxStream, visibility, folderId)
+						: mal.createCXNetwork(cxStream);
 				NetworkSummary networkSummary = mal.getNetworkSummaryById(networkUUID);
 				
 				NDExNetworkManager.saveUUID(referenceNetwork, networkUUID, networkSummary.getModificationTime());
 			} else {
-				networkUUID = NDExNetworkManager.getUUID(referenceNetwork);
+				// An explicitly named network wins over the one this network was last saved as, so a
+				// caller can retarget an upload. The local binding is only rewritten once the upload
+				// has actually succeeded -- writing it up front would leave the network pointing at
+				// someone else's NDEx entry if the upload failed.
+				final UUID requestedUUID = parseRequestedNetworkId();
+				networkUUID = requestedUUID != null ? requestedUUID : NDExNetworkManager.getUUID(referenceNetwork);
 				if (networkUUID == null) {
 					throw new NetworkUpdateException("No UUID found for " + network);
 				}
-				mal.updateCXNetwork(networkUUID, cxStream);
+				if (format == CxFormat.CX2) {
+					mal.updateCX2Network(networkUUID, cxStream, visibility);
+					// Folder placement is a query parameter on create only, so moving is a separate call.
+					if (folderId != null) {
+						MoveNetworksRequest move = new MoveNetworksRequest();
+						move.setTargetFolder(folderId);
+						move.setNetworks(Collections.singletonList(networkUUID));
+						mal.moveNetworks(move);
+					}
+				} else {
+					mal.updateCXNetwork(networkUUID, cxStream);
+				}
 				NetworkSummary networkSummary = mal.getNetworkSummaryById(networkUUID);
-				NDExNetworkManager.updateModificationTimeStamp(referenceNetwork, networkSummary.getModificationTime());
+				if (requestedUUID != null && !requestedUUID.equals(NDExNetworkManager.getUUID(referenceNetwork))) {
+					NDExNetworkManager.saveUUID(referenceNetwork, networkUUID, networkSummary.getModificationTime());
+				} else {
+					NDExNetworkManager.updateModificationTimeStamp(referenceNetwork, networkSummary.getModificationTime());
+				}
 			}
+		} catch (NetworkExportException e) {
+			// Already a precise, user-facing message (bad visibility, unknown folder, collection misuse):
+			// let it through rather than re-wrapping it in the generic text below.
+			throw e;
 		} catch (NetworkUpdateException e) {
 			throw new NetworkExportException("Only networks imported from CyNDEx2 can be updated. Error: " + e.getMessage());
 		} catch (IOException e) {
@@ -191,6 +246,90 @@ public class NetworkExportTask extends AbstractTask implements ObservableTask{
 
 	public UUID getUUID() {
 		return networkUUID;
+	}
+
+	/** The NDEx network the caller asked to overwrite, or null to use this network's stored UUID. */
+	private UUID parseRequestedNetworkId() {
+		final String requested = params.networkId;
+		if (requested == null || requested.trim().isEmpty()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(requested.trim());
+		} catch (IllegalArgumentException e) {
+			throw new NetworkExportException("Invalid networkId '" + requested + "'. Expected a UUID.");
+		}
+	}
+
+	/** The folder the network was placed in, or null when none was requested. */
+	public UUID getFolderId() {
+		return folderId;
+	}
+
+	/**
+	 * Maps the requested visibility onto the NDEx enum. Validated here rather than left to the server,
+	 * which answers an unparseable value with a 500 instead of a 400.
+	 */
+	private VisibilityType resolveVisibility() {
+		String requested = params.visibility;
+		if (requested == null || requested.trim().isEmpty()) {
+			// Legacy field: only honoured when explicitly set, so existing callers that omit it keep
+			// whatever default the server applies.
+			if (params instanceof NDExSaveParameters) {
+				Boolean isPublic = ((NDExSaveParameters) params).isPublic;
+				if (isPublic != null) {
+					return isPublic ? VisibilityType.PUBLIC : VisibilityType.PRIVATE;
+				}
+			}
+			return null;
+		}
+		if (writeCollection) {
+			throw new NetworkExportException(
+					"'visibility' is not supported when saving a collection; it applies to single networks only.");
+		}
+		try {
+			return VisibilityType.valueOf(requested.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			throw new NetworkExportException("Invalid visibility '" + requested
+					+ "'. Expected one of PUBLIC, PRIVATE, UNLISTED.");
+		}
+	}
+
+	/**
+	 * Resolves the requested folder, given as either a UUID or a folder name, to its UUID.
+	 * Lives here rather than in a caller so the REST endpoints and the desktop command share it.
+	 */
+	private UUID resolveFolderId() throws Exception {
+		final String requested = params.folder;
+		if (requested == null || requested.trim().isEmpty()) {
+			return null;
+		}
+		if (writeCollection) {
+			throw new NetworkExportException(
+					"'folder' is not supported when saving a collection; it applies to single networks only.");
+		}
+		final String trimmed = requested.trim();
+		try {
+			return UUID.fromString(trimmed);
+		} catch (IllegalArgumentException notAUuid) {
+			// fall through to a name lookup
+		}
+		final List<NdexFolder> folders = mal.getMyFolders(FOLDER_LOOKUP_LIMIT);
+		final List<NdexFolder> matches = folders == null ? Collections.emptyList()
+				: folders.stream()
+						.filter(f -> trimmed.equalsIgnoreCase(f.getName()))
+						.collect(Collectors.toList());
+		if (matches.size() == 1) {
+			return matches.get(0).getExternalId();
+		}
+		final String available = folders == null || folders.isEmpty() ? "(none)"
+				: folders.stream().map(NdexFolder::getName).collect(Collectors.joining(", "));
+		if (matches.isEmpty()) {
+			throw new NetworkExportException("No NDEx folder named '" + trimmed
+					+ "'. Available folders: " + available + ". A folder UUID may be given instead.");
+		}
+		throw new NetworkExportException("More than one NDEx folder is named '" + trimmed
+				+ "'. Give the folder UUID instead. Available folders: " + available + ".");
 	}
 
 }

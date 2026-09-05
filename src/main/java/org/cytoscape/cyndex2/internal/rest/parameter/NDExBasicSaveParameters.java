@@ -16,6 +16,18 @@ public class NDExBasicSaveParameters {
 	public String serverUrl;
 	@ApiModelProperty(value = "Network metadata", required = true)
 	public Map<String, String> metadata;
+	@ApiModelProperty(value = "UUID of an existing NDEx network to overwrite. When omitted, an update uses the "
+			+ "UUID this network was previously saved with. Ignored when creating.",
+			example = "12345678-abcd-1234-abcd-1234567890ab", required = false)
+	public String networkId;
+	@ApiModelProperty(value = "Visibility to apply on NDEx: PUBLIC, PRIVATE or UNLISTED. "
+			+ "When omitted the server's default is left in place. Single networks only; "
+			+ "not supported when saving a collection.", example = "PRIVATE", required = false)
+	public String visibility;
+	@ApiModelProperty(value = "NDEx folder to place the network in, given as a folder name or UUID. "
+			+ "Single networks only; not supported when saving a collection.",
+			example = "My Project", required = false)
+	public String folder;
 
 	public NDExBasicSaveParameters() {
 		super();

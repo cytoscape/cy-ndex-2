@@ -6,7 +6,9 @@ import java.util.UUID;
 import javax.ws.rs.core.Response.Status;
 
 import org.cytoscape.cyndex2.internal.CyActivator;
+import org.cytoscape.cyndex2.internal.CxFormat;
 import org.cytoscape.cyndex2.internal.CyServiceModule;
+import org.cytoscape.cyndex2.internal.util.NdexServerCapabilities;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorType;
 import org.cytoscape.cyndex2.internal.rest.parameter.NDExImportParameters;
@@ -24,11 +26,22 @@ public class NDExImportTaskFactory extends AbstractTaskFactory {
 
 	private NetworkImportTask importer;
 
+	private final CxFormat format;
+	private final NdexServerCapabilities serverCapabilities;
+
 	public NDExImportTaskFactory(NDExImportParameters params) {
+		this(params, CxFormat.CX2, CyServiceModule.INSTANCE.getErrorBuilder(),
+				new NdexServerCapabilities(CyServiceModule.getAdminStatusService()));
+	}
+
+	/** For tests: inject the CX format, error builder and v3 capability probe. */
+	NDExImportTaskFactory(NDExImportParameters params, CxFormat format, ErrorBuilder errorBuilder,
+			NdexServerCapabilities serverCapabilities) {
 		super();
-		
 		this.params = params;
-		this.errorBuilder = CyServiceModule.INSTANCE.getErrorBuilder();
+		this.format = format;
+		this.errorBuilder = errorBuilder;
+		this.serverCapabilities = serverCapabilities;
 	}
 
 	private NetworkImportTask buildImportTask() throws IOException, NdexException {
@@ -40,7 +53,8 @@ public class NDExImportTaskFactory extends AbstractTaskFactory {
 			final NdexRestClient client = new NdexRestClient(params.username, params.password, serverUrl,
 					UserAgentUtil.getUserAgent());
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(client);
-			return new NetworkImportTask(mal, uuid, params.accessKey, params.createView);
+			requireServerSupport(serverUrl);
+			return new NetworkImportTask(mal, uuid, params.accessKey, params.createView, format);
 		} else {
 			final NdexRestClient client = new NdexRestClient(null, null, params.serverUrl,
 					UserAgentUtil.getUserAgent());
@@ -49,7 +63,15 @@ public class NDExImportTaskFactory extends AbstractTaskFactory {
 
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(client);
 
-			return new NetworkImportTask(mal, uuid, params.accessKey, params.createView);
+			requireServerSupport(params.serverUrl);
+			return new NetworkImportTask(mal, uuid, params.accessKey, params.createView, format);
+		}
+	}
+
+	/** CX2 is only readable from an NDEx v3 server; CX1 works against any of them. */
+	private void requireServerSupport(String serverUrl) {
+		if (format == CxFormat.CX2) {
+			serverCapabilities.requireV3(serverUrl);
 		}
 	}
 

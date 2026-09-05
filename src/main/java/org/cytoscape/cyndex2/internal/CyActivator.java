@@ -29,6 +29,13 @@ import org.cytoscape.cyndex2.internal.rest.endpoints.impl.NdexNetworkResourceImp
 import org.cytoscape.cyndex2.internal.rest.endpoints.impl.NdexStatusResourceImpl;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.task.OpenBrowseTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExDownloadNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExListProfilesCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExSearchNetworksCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NDExUploadNetworkCommandTaskFactory;
+import org.cytoscape.cyndex2.internal.task.command.NdexCommandProperties;
+import org.cytoscape.cyndex2.internal.util.NdexProfileResolver;
+import org.cytoscape.cyndex2.internal.util.NdexServerCapabilities;
 import org.cytoscape.cyndex2.internal.task.OpenSaveCollectionTaskFactory;
 import org.cytoscape.cyndex2.internal.task.OpenSaveTaskFactory;
 import org.cytoscape.cyndex2.internal.ui.ImportUserNetworkFromNDExTaskFactory;
@@ -39,6 +46,7 @@ import org.cytoscape.cyndex2.internal.util.CIServiceManager;
 import org.cytoscape.cyndex2.internal.util.ExternalAppManager;
 import org.cytoscape.cyndex2.internal.util.IconUtil;
 import org.cytoscape.cyndex2.internal.util.StringResources;
+import org.cytoscape.io.read.CyNetworkReaderManager;
 import org.cytoscape.io.read.InputStreamTaskFactory;
 import org.cytoscape.io.write.CyNetworkViewWriterFactory;
 import org.cytoscape.model.CyNetworkManager;
@@ -151,6 +159,7 @@ public class CyActivator extends AbstractCyActivator {
 
 		// Create subdirectories in config dir for jxbrowser
 		final CyNetworkManager netmgr = getService(bc, CyNetworkManager.class);
+		final CyNetworkReaderManager networkReaderManager = getService(bc, CyNetworkReaderManager.class);
 		//File jxBrowserDir = new File(config.getConfigurationDirectoryLocation(), "jxbrowser");
 		//jxBrowserDir.mkdir();
 		//BrowserManager.setDataDirectory(new File(jxBrowserDir, "data"));
@@ -199,7 +208,7 @@ public class CyActivator extends AbstractCyActivator {
 				new Properties());
 
 		// Network IO
-		registerService(bc, new NdexNetworkResourceImpl(ndexClient, appManager, netmgr, ciServiceManager),
+		registerService(bc, new NdexNetworkResourceImpl(ndexClient, appManager, netmgr, ciServiceManager, networkReaderManager),
 				NdexNetworkResource.class, new Properties());
 
 		OpenSaveTaskFactory saveNetworkToNDExContextMenuTaskFactory = new OpenSaveTaskFactory(appManager);
@@ -212,6 +221,20 @@ public class CyActivator extends AbstractCyActivator {
 
 		registerService(bc, saveNetworkToNDExContextMenuTaskFactory, NetworkCollectionTaskFactory.class,
 				saveNetworkToNDExContextMenuProps);
+
+		// Desktop commands, so CyREST and MCP tooling can drive NDEx with CyNDEx-2's sign-in profiles.
+		// Collaborators are handed in rather than looked up from singletons, so the tasks stay testable.
+		final NdexProfileResolver profileResolver = new NdexProfileResolver();
+		final NdexServerCapabilities serverCapabilities = new NdexServerCapabilities(adminStatusSvc);
+
+		registerService(bc, new NDExUploadNetworkCommandTaskFactory(profileResolver, appManager),
+				TaskFactory.class, NdexCommandProperties.uploadNetwork());
+		registerService(bc, new NDExDownloadNetworkCommandTaskFactory(profileResolver, netmgr),
+				TaskFactory.class, NdexCommandProperties.downloadNetwork());
+		registerService(bc, new NDExSearchNetworksCommandTaskFactory(profileResolver, serverCapabilities),
+				TaskFactory.class, NdexCommandProperties.searchNetworks());
+		registerService(bc, new NDExListProfilesCommandTaskFactory(profileResolver),
+				TaskFactory.class, NdexCommandProperties.listProfiles());
 
 	}
 
