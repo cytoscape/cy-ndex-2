@@ -58,9 +58,38 @@ public final class UrlUtils {
 		return stripped;
 	}
 
+	/**
+	 * The host string to hand {@code NdexRestClient}, adjusted only where the SDK would mishandle it.
+	 *
+	 * The SDK builds its base route three ways, and appends routes to it with no separator:
+	 * a host with no scheme becomes {@code https://host/}; a scheme-qualified host ending in {@code /v2} or
+	 * {@code /v3} keeps its trailing slash; and a scheme-qualified host with no version segment is taken
+	 * verbatim -- leaving no slash, so paths land as {@code https://www.ndexbio.orgv2/network/...}.
+	 *
+	 * Only that third form needs help, so only that form is touched: a version segment is added for the SDK
+	 * to strip. A scheme-less host is deliberately passed through untouched, because forcing a scheme here
+	 * would override the SDK's https default -- and silently downgrade a profile stored as a bare host to
+	 * plain http. Unlike {@link #getBaseRoute(String)}, this never invents a scheme.
+	 */
+	public static String toSdkHost(String url) {
+		if (url == null || url.isEmpty()) return url;
+		if (!hasHttpScheme(url)) return url;
+		return stripApiVersion(url) + "/v2";
+	}
+
+	/**
+	 * The API base an {@code NdexRestClient} can be built from: a scheme, the host, and a version segment.
+	 *
+	 * The version segment is a normalization handle rather than a choice of API -- the SDK strips it back off
+	 * and appends v2 or v3 per endpoint. What matters is that the result is one of the shapes the SDK turns
+	 * into a base route with a trailing slash; a scheme-qualified host with no version segment is not, and
+	 * silently produces {@code https://hostv2/network/...}.
+	 *
+	 * Strips any version segment first, so a URL already ending in {@code /v3} does not become
+	 * {@code /v3/v2}. Idempotent, so normalizing an already-normalized URL is safe.
+	 */
 	public static String getBaseRoute(String url) {
 		if (url == null || url.isEmpty()) return url;
-		String withProto = addHttpProtocol(url);
-		return (withProto.endsWith("/v2") || withProto.endsWith("/v2/")) ? withProto : withProto + "/v2";
+		return addHttpProtocol(stripApiVersion(url)) + "/v2";
 	}
 }

@@ -128,9 +128,36 @@ public class ServerManagerUrlTest {
 		assertEquals("https://example.com/v2", UrlUtils.getBaseRoute("https://example.com/v2"));
 	}
 
+	/**
+	 * The trailing slash is dropped rather than preserved, because preserving it produced a URL the SDK
+	 * cannot use: {@code .../v2/} does not match its {@code endsWith("/v2")} branch, so it is taken verbatim
+	 * as the base route and every path lands at {@code .../v2/v2/network/...}.
+	 */
 	@Test
-	public void getBaseRoute_trailing_slash_v2_idempotent() {
-		assertEquals("http://localhost:8080/v2/", UrlUtils.getBaseRoute("http://localhost:8080/v2/"));
+	public void getBaseRoute_trailing_slash_v2_normalizes_to_a_usable_base() {
+		assertEquals("http://localhost:8080/v2", UrlUtils.getBaseRoute("http://localhost:8080/v2/"));
+	}
+
+	/** A v3 URL must not accumulate a second version segment. */
+	@Test
+	public void getBaseRoute_v3_does_not_become_v3_v2() {
+		assertEquals("https://example.com/v2", UrlUtils.getBaseRoute("https://example.com/v3"));
+		assertEquals("https://example.com/v2", UrlUtils.getBaseRoute("https://example.com/v3/"));
+	}
+
+	/**
+	 * The form that caused the no-profile download failure: a scheme-qualified host with no version segment
+	 * was passed to the SDK unchanged, which then built {@code https://www.ndexbio.orgv2/network/...}.
+	 */
+	@Test
+	public void getBaseRoute_scheme_without_version_gains_one() {
+		assertEquals("https://www.ndexbio.org/v2", UrlUtils.getBaseRoute("https://www.ndexbio.org"));
+	}
+
+	@Test
+	public void getBaseRoute_is_idempotent() {
+		String once = UrlUtils.getBaseRoute("www.ndexbio.org");
+		assertEquals(once, UrlUtils.getBaseRoute(once));
 	}
 
 	@Test

@@ -32,9 +32,7 @@ import java.util.logging.Logger;
 import java.util.UUID;
 
 import org.ndexbio.model.exceptions.NdexException;
-import org.cytoscape.cyndex2.internal.util.UrlUtils;
 import org.ndexbio.model.object.NdexStatus;
-import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 
 /**
@@ -128,9 +126,7 @@ public class Server
     
     public NdexRestClientModelAccessLayer getModelAccessLayer() throws IOException, NdexException
     {
-    	final String apiUrl = UrlUtils.getBaseRoute(url);
-    	final NdexRestClient client = new NdexRestClient(username,password,apiUrl, UserAgentUtil.getUserAgent());
-			return new NdexRestClientModelAccessLayer(client);
+    	return NdexClients.modelAccessLayer(username, password, url);
     }
    
     @Override

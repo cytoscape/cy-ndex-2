@@ -35,7 +35,7 @@ jobs:
       run: mvn versions:set -DnewVersion=${{ steps.version.outputs.version }} -DgenerateBackupPoms=false
 
     - name: Build release JAR
-      run: xvfb-run mvn package -DskipTests
+      run: mvn clean package -DskipTests
 
     - name: Upload JAR to release
       run: |
