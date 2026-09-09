@@ -12,12 +12,12 @@ import org.cytoscape.cyndex2.internal.util.NdexServerCapabilities;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorType;
 import org.cytoscape.cyndex2.internal.rest.parameter.NDExImportParameters;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.work.AbstractTaskFactory;
 import org.cytoscape.work.TaskIterator;
 import org.ndexbio.model.exceptions.NdexException;
 import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
+import org.cytoscape.cyndex2.internal.util.NdexClients;
 
 public class NDExImportTaskFactory extends AbstractTaskFactory {
 
@@ -50,14 +50,12 @@ public class NDExImportTaskFactory extends AbstractTaskFactory {
 		if (params.username != null && params.password != null) {
 			final String serverUrl = params.serverUrl == null ? "http://ndexbio.org/v2/" : params.serverUrl;
 
-			final NdexRestClient client = new NdexRestClient(params.username, params.password, serverUrl,
-					UserAgentUtil.getUserAgent());
-			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(client);
+			final NdexRestClientModelAccessLayer mal = NdexClients.modelAccessLayer(params.username,
+					params.password, serverUrl);
 			requireServerSupport(serverUrl);
 			return new NetworkImportTask(mal, uuid, params.accessKey, params.createView, format);
 		} else {
-			final NdexRestClient client = new NdexRestClient(null, null, params.serverUrl,
-					UserAgentUtil.getUserAgent());
+			final NdexRestClient client = NdexClients.createAnonymous(params.serverUrl);
 			if (params.idToken != null)
 				client.signIn(params.idToken);
 

@@ -14,12 +14,11 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.cytoscape.cyndex2.internal.CyActivator;
-import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.cyndex2.internal.util.UrlUtils;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.ndexbio.model.object.NdexStatus;
 import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
+import org.cytoscape.cyndex2.internal.util.NdexClients;
 
 /**
  *
@@ -207,9 +206,7 @@ public class SignInAdvancedDialog extends javax.swing.JDialog {
 		final Exception[] lastError = { null };
 		String verifiedURL = resolveServerUrl(trimmedURL, candidate -> {
 			try {
-				final String baseRoute = ServerManager.getBaseRoute(candidate);
-				final NdexRestClient nc = new NdexRestClient(baseRoute);
-				nc.setAdditionalUserAgent(UserAgentUtil.getUserAgent());
+				final NdexRestClient nc = NdexClients.createAnonymous(candidate);
 				final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 				final NdexStatus status = mal.getServerStatus();
 				return status.getProperties().size() > 0;

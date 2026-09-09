@@ -35,7 +35,6 @@ import org.cytoscape.cyndex2.internal.util.NDExNetworkManager;
 import org.cytoscape.cyndex2.internal.util.Server;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.cyndex2.internal.util.UpdateUtil;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.io.read.AbstractCyNetworkReader;
 import org.cytoscape.io.read.CyNetworkReader;
 import org.cytoscape.io.read.CyNetworkReaderManager;
@@ -57,6 +56,7 @@ import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.cytoscape.cyndex2.internal.util.NdexClients;
 
 public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
@@ -297,8 +297,7 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 		// Check UUID
 		UUID uuid;
 		try {
-			final NdexRestClient nc = new NdexRestClient(params.username, params.password, params.serverUrl,
-					UserAgentUtil.getUserAgent());
+			final NdexRestClient nc = NdexClients.create(params.username, params.password, params.serverUrl);
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 			uuid = UpdateUtil.updateIsPossibleHelper(suid, network instanceof CyRootNetwork, nc, mal);
 		} catch (Exception e) {
@@ -380,8 +379,8 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
 		try {
 
-			final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
-					selectedServer.getUrl(), UserAgentUtil.getUserAgent());
+			final NdexRestClient nc = NdexClients.create(selectedServer.getUsername(),
+					selectedServer.getPassword(), selectedServer.getUrl());
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 
 			

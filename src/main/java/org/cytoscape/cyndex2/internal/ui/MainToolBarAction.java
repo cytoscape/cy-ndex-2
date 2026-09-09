@@ -81,8 +81,10 @@ public class MainToolBarAction extends AbstractCyAction {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				JFrame parent = serviceRegistrar.getService(CySwingApplication.class).getJFrame();
-				
-				SignInDialog signInDialog = new SignInDialog(null);
+
+				// Owned by the Cytoscape window: setLocationRelativeTo only places it, so a null owner
+				// would let the sign-in dialog slip behind the application.
+				SignInDialog signInDialog = new SignInDialog(parent);
 				signInDialog.setLocationRelativeTo(parent);
 				signInDialog.setVisible(true);
 				
