@@ -36,7 +36,6 @@ import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
-import java.net.URI;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,10 +51,6 @@ import javax.swing.SwingConstants;
 import javax.swing.table.TableCellRenderer;
 
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClients;
 import org.cytoscape.cyndex2.internal.CyActivator;
 import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.rest.parameter.LoadParameters;
@@ -74,7 +69,7 @@ import org.ndexbio.model.object.network.NetworkSummary;
 import org.ndexbio.model.object.network.VisibilityType;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.cytoscape.cyndex2.internal.rest.NdexImportRequest;
 
 /**
  *
@@ -114,8 +109,10 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 		if (loadDialog != null && loadDialog.isVisible()) {
 			loadDialog.setVisible(false);
 		}
-		loadDialog = new FindNetworksDialog(null, loadParameters);
+		// Owned by the Cytoscape window, not merely positioned over it: setLocationRelativeTo is geometry,
+		// so a null owner leaves this dialog with no stacking relationship to the app and free to fall behind it.
 		final JFrame parentFrame = CyServiceModule.INSTANCE.getSwingApplication().getJFrame();
+		loadDialog = new FindNetworksDialog(parentFrame, loadParameters);
 		loadDialog.setLocationRelativeTo(parentFrame);
 		loadDialog.setVisible(true);
 	}
@@ -156,65 +153,65 @@ public class FindNetworksDialog extends javax.swing.JDialog implements PropertyC
 		}
 
 		if (importNetwork) {
-			ModalProgressHelper.runWorker(this, "Loading Network", () -> {
-				final Server selectedServer = ServerManager.INSTANCE.getServer();
+			// The worker reports back rather than showing anything itself: it runs on a background thread
+			// while the modal progress dialog holds the EDT, so a dialog raised from in there would be
+			// off-EDT Swing access stacked under a modal that is still up. Report once we are back here.
+			final NdexImportRequest.Outcome outcome = ModalProgressHelper.runWorker(this, "Loading Network",
+					() -> importCurrentSelection(networkSummary, createView));
 
-				boolean success;
-				try {
-					final NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
-					success = selectedServer.check(mal);
-				} catch (IOException | NdexException e1) {
-					Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Server check failed", e1);
-					success = false;
-				}
-				if (success) {
-					// The network to copy from.
-//                        NetworkSummary networkSummary = NetworkManager.INSTANCE.getSelectedNetworkSummary();
-					UUID uuid = networkSummary.getExternalId();
-					// System.out.println("NetworkSummary external ID: " + (uuid == null ? null :
-					// uuid.toString()));
-					try {
-						// ProvenanceEntity provenance = mal.getNetworkProvenance(id.toString());
-
-						String REST_URI = "http://localhost:" + CyActivator.getCyRESTPort() + "/cyndex2/v1/networks";
-						HttpClient httpClient = HttpClients.createDefault();
-						final URI uri = URI.create(REST_URI);
-						final HttpPost post = new HttpPost(uri.toString());
-						post.setHeader("Content-type", "application/json");
-
-						NDExImportParameters importParameters = new NDExImportParameters(uuid.toString(),
-								selectedServer.getUsername(), selectedServer.getPassword(), selectedServer.getUrl(),
-								null, null, createView);
-						ObjectMapper objectMapper = new ObjectMapper();
-
-						post.setEntity(new StringEntity(objectMapper.writeValueAsString(importParameters)));
-
-						httpClient.execute(post);
-
-					}
-
-					/*
-					 * catch (IOException ex) { JOptionPane.showMessageDialog(me,
-					 * ErrorMessage.failedToParseJson, "Error", JOptionPane.ERROR_MESSAGE); return
-					 * -1; }
-					 */
-					catch (RuntimeException ex2) {
-						Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Network import failed", ex2);
-					JOptionPane.showMessageDialog(null,
-								"This network can't be imported to cytoscape. Cause: " + ex2.getMessage(), "Error",
-								JOptionPane.ERROR_MESSAGE);
-						return -1;
-					} catch (IOException e) {
-						Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Network import HTTP request failed", e);
-					}
-				} else {
-					JOptionPane.showMessageDialog(null, ErrorMessage.failedServerCommunication, "Error",
-							JOptionPane.ERROR_MESSAGE);
-					return -1;
-				}
-				return 1;
-			});
+			if (outcome == null) {
+				showError(ErrorMessage.failedServerCommunication);
+			} else if (!outcome.succeeded()) {
+				showError(outcome.getMessage());
+			}
 		}
+	}
+
+	/** Runs on the worker thread: no Swing here, only a description of what happened. */
+	private NdexImportRequest.Outcome importCurrentSelection(final NetworkSummary networkSummary,
+			final boolean createView) {
+		final Server selectedServer = ServerManager.INSTANCE.getServer();
+
+		try {
+			final NdexRestClientModelAccessLayer mal = selectedServer.getModelAccessLayer();
+			if (!selectedServer.check(mal)) {
+				return NdexImportRequest.Outcome.failed(ErrorMessage.failedServerCommunication);
+			}
+		} catch (IOException | NdexException e1) {
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Server check failed", e1);
+			return NdexImportRequest.Outcome.failed(ErrorMessage.failedServerCommunication);
+		}
+
+		final UUID uuid = networkSummary.getExternalId();
+		final NDExImportParameters importParameters = new NDExImportParameters(uuid.toString(),
+				selectedServer.getUsername(), selectedServer.getPassword(), selectedServer.getUrl(),
+				null, null, createView);
+
+		final String endpoint = "http://localhost:" + CyActivator.getCyRESTPort() + "/cyndex2/v1/networks";
+		try {
+			final NdexImportRequest.Outcome outcome = new NdexImportRequest().send(endpoint, importParameters);
+			if (!outcome.succeeded()) {
+				Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING,
+						"Network import failed: " + outcome.getMessage());
+			}
+			return outcome;
+		} catch (RuntimeException ex2) {
+			Logger.getLogger(FindNetworksDialog.class.getName()).log(Level.WARNING, "Network import failed", ex2);
+			return NdexImportRequest.Outcome.failed(
+					"This network can't be imported to cytoscape. Cause: " + ex2.getMessage());
+		}
+	}
+
+	/**
+	 * Parented to this dialog, never to null: JOptionPane makes the message a child window of the parent's
+	 * window, so it is drawn above this dialog and travels with it. A null parent binds it to Swing's shared
+	 * hidden frame instead, which has no stacking relationship to anything on screen and can leave the
+	 * message behind the windows it is about.
+	 */
+	private void showError(final String message) {
+		JOptionPane.showMessageDialog(this,
+				message == null ? ErrorMessage.failedServerCommunication : message,
+				"Error", JOptionPane.ERROR_MESSAGE);
 	}
 
 	public void setFocusOnDone() {

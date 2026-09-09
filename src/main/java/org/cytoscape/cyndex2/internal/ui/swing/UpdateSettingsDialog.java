@@ -20,7 +20,6 @@ import org.cytoscape.cyndex2.internal.CyServiceModule;
 import org.cytoscape.cyndex2.internal.util.NDExNetworkManager;
 import org.cytoscape.cyndex2.internal.util.Server;
 import org.cytoscape.cyndex2.internal.util.UpdateUtil;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.util.swing.IconManager;
 import org.ndexbio.model.object.network.NetworkSummary;
@@ -28,6 +27,7 @@ import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 
 import static org.cytoscape.util.swing.IconManager.ICON_WARNING;
+import org.cytoscape.cyndex2.internal.util.NdexClients;
 
 /**
  *
@@ -211,8 +211,8 @@ public class UpdateSettingsDialog extends javax.swing.JDialog {
 			final String uuidString = this.uuidTextField.getText().trim();
 			final UUID potentialUUID = UUID.fromString(uuidString);
 
-			final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
-					selectedServer.getUrl(), UserAgentUtil.getUserAgent());
+			final NdexRestClient nc = NdexClients.create(selectedServer.getUsername(),
+					selectedServer.getPassword(), selectedServer.getUrl());
 			final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 
 			verifiedUUID = UpdateUtil.updateIsPossible(network, potentialUUID, nc, mal, false);

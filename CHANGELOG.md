@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.5] - 2026-09-08
+
+### Fixed
+- Downloading a network from the CyNDEx-2 search window did nothing when no sign-in profile was configured. With no profile the app falls back to the public NDEx server, and that server URL was passed to the NDEx client without normalization, producing requests against `www.ndexbio.orgv2` instead of `www.ndexbio.org/v2`. Every NDEx client is now built through a single helper that normalizes the URL, so the anonymous fallback works from the search window and from `ndex download network` alike. [issue/92](https://github.com/cytoscape/cy-ndex-2/issues/92)
+- A failed download from the search window now reports the reason instead of doing nothing: the HTTP response from Cytoscape's own NDEx endpoint was discarded, so a server error produced no dialog and no log entry. [issue/92](https://github.com/cytoscape/cy-ndex-2/issues/92)
+- The search, sign-in and error dialogs are now owned by the Cytoscape main window rather than merely positioned over it, so they can no longer open behind the application. [issue/92](https://github.com/cytoscape/cy-ndex-2/issues/92)
+- `POST /cyndex2/v1/networks` could wait forever for a task that had already finished. The endpoint waited on a notification that the task manager may deliver from another thread before the wait begins, in which case it was lost and the request thread never resumed. The wait is now a latch, and is bounded. [issue/92](https://github.com/cytoscape/cy-ndex-2/issues/92)
+- A server URL ending in `/v3` no longer has a second version segment appended to it, and one ending in `/v2/` no longer produces a doubled `/v2/v2/` request path. [issue/92](https://github.com/cytoscape/cy-ndex-2/issues/92)
+
 ## [3.7.4] - 2026-09-04
 
 ### Added

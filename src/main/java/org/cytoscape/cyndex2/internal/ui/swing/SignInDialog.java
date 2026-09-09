@@ -25,6 +25,7 @@ import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.util.swing.IconManager;
 
 import static org.cytoscape.util.swing.IconManager.ICON_COG;
+import java.awt.Window;
 
 /**
  *
@@ -46,12 +47,17 @@ public class SignInDialog extends javax.swing.JDialog {
 	/**
 	 * Creates new form NewJDialog
 	 */
-	public SignInDialog(JDialog parent) {
+	public SignInDialog(Window parent) {
 		this(parent, CyServiceModule.getAdminStatusService());
 	}
 
-	SignInDialog(JDialog parent, NdexAdminStatusService service) {
-		super(parent, true);
+	/**
+	 * Takes a {@link Window} rather than a {@code JDialog} so the Cytoscape main frame can own this dialog.
+	 * An owner is what keeps a dialog stacked above the window it belongs to; a null owner leaves it parented
+	 * to Swing's shared hidden frame, free to end up behind the application.
+	 */
+	SignInDialog(Window parent, NdexAdminStatusService service) {
+		super(parent, ModalityType.APPLICATION_MODAL);
 		initComponents();
 		this.getRootPane().setDefaultButton(save);
 		this.controller = new SignInLinkAreaController(

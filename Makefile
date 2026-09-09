@@ -33,10 +33,12 @@ clean: ## run mvn clean
 lint: ## check style with checkstyle:checkstyle
 	mvn checkstyle:checkstyle
 
-test: ## run tests with mvn test
+# Depends on clean: maven's incremental compilation recompiles only changed sources, so a change that
+# breaks a *caller* elsewhere can go unnoticed and the build reports success on code that does not compile.
+test: clean ## run tests with mvn test
 	mvn test
 
-coverage: ## check code coverage with jacoco
+coverage: clean ## check code coverage with jacoco
 	mvn test jacoco:report
 	$(BROWSER) target/site/jacoco/index.html
 

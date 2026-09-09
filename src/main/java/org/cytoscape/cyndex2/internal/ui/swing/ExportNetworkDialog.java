@@ -65,7 +65,6 @@ import org.cytoscape.cyndex2.internal.rest.response.SummaryResponse;
 import org.cytoscape.cyndex2.internal.util.Server;
 import org.cytoscape.cyndex2.internal.util.ServerManager;
 import org.cytoscape.cyndex2.internal.util.UpdateUtil;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.util.swing.IconManager;
 import org.ndexbio.rest.client.NdexRestClient;
@@ -74,6 +73,7 @@ import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.cytoscape.cyndex2.internal.util.NdexClients;
 
 /**
  *
@@ -533,7 +533,8 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 	private void exportButtonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_uploadActionPerformed
 		final Server server = ServerManager.INSTANCE.getServer();
 		if (server.getUsername() == null) {
-			SignInDialog signInDialog = new SignInDialog(null);
+			// owned by this dialog, so it cannot open behind the export window it interrupts
+			SignInDialog signInDialog = new SignInDialog(this);
 			signInDialog.setLocationRelativeTo(this);
 			signInDialog.setVisible(true);
 			
@@ -640,8 +641,8 @@ public class ExportNetworkDialog extends javax.swing.JDialog implements Property
 			updateErrorLabel.setText("Update not possible. Please sign in to a valid NDEx account");
 		} else {
 			try {
-				final NdexRestClient nc = new NdexRestClient(selectedServer.getUsername(), selectedServer.getPassword(),
-						selectedServer.getUrl(), UserAgentUtil.getUserAgent());
+				final NdexRestClient nc = NdexClients.create(selectedServer.getUsername(),
+						selectedServer.getPassword(), selectedServer.getUrl());
 				final NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(nc);
 				updatePossible = UpdateUtil.updateIsPossibleHelper(saveParameters.suid,
 						saveParameters.saveType.equals("collection"), nc, mal, !isUUIDChanged) != null;

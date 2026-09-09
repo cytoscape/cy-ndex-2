@@ -18,7 +18,6 @@ import org.cytoscape.cyndex2.internal.rest.errors.ErrorBuilder;
 import org.cytoscape.cyndex2.internal.rest.errors.ErrorType;
 import org.cytoscape.cyndex2.internal.rest.parameter.NDExBasicSaveParameters;
 import org.cytoscape.cyndex2.internal.util.NdexServerCapabilities;
-import org.cytoscape.cyndex2.internal.util.UserAgentUtil;
 import org.cytoscape.io.write.CyNetworkViewWriterFactory;
 import org.cytoscape.io.write.CyWriter;
 import org.cytoscape.model.CyColumn;
@@ -32,8 +31,8 @@ import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.TaskIterator;
 import org.cytoscape.work.TaskMonitor;
-import org.ndexbio.rest.client.NdexRestClient;
 import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
+import org.cytoscape.cyndex2.internal.util.NdexClients;
 
 public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTaskFactory {
 
@@ -128,9 +127,8 @@ public class NDExExportTaskFactory implements NetworkViewTaskFactory, NetworkTas
 				byte[] bytes = out.toByteArray();
 				ByteArrayInputStream in = new ByteArrayInputStream(bytes);
 				
-				NdexRestClient client = new NdexRestClient(params.username, params.password, params.serverUrl,
-						 UserAgentUtil.getUserAgent());
-				NdexRestClientModelAccessLayer mal = new NdexRestClientModelAccessLayer(client);
+				NdexRestClientModelAccessLayer mal = NdexClients.modelAccessLayer(params.username,
+						params.password, params.serverUrl);
 				
 				exporter = new NetworkExportTask(mal, network.getSUID(), in, params, writeCollection, isUpdate,
 						format);
