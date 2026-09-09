@@ -259,6 +259,9 @@ public class NdexNetworkResourceTest {
 		
 		doAnswer(new Answer<Void>() {
 			public Void answer(InvocationOnMock invocation) {
+				// Reporting from another thread is the point -- it is the ordering the endpoint has to cope
+				// with. Shut the executor down once the work is queued, or every call leaves a non-daemon
+				// thread alive and the test JVM has no reason to exit when the suite ends.
 				final ExecutorService service = Executors.newSingleThreadExecutor();
 				service.submit(()-> {
 					Object[] args = invocation.getArguments();
@@ -284,6 +287,7 @@ public class NdexNetworkResourceTest {
 			            if (observer != null && task != null) observer.allFinished(FinishStatus.newFailed(task, exception));
 					}
 				});
+				service.shutdown();
 				return null;
 			}
 		}).when(dtm).execute(any(TaskIterator.class), any(TaskObserver.class));
@@ -414,6 +418,52 @@ public class NdexNetworkResourceTest {
 		verify(networkReaderManager).getReader(eq(inputStream), anyObject());
 		verify(networkManager).addNetwork(cyNetwork);
 		verify(readerTask).buildCyNetworkView(cyNetwork);
+	}
+
+	/**
+	 * The endpoint waits for the task manager to report completion. The task manager may report from another
+	 * thread and may already be done before the endpoint starts waiting -- which is what made CI hang since
+	 * July, always at this test class, on a race that lands differently on a loaded runner than on a laptop.
+	 *
+	 * Here the observer is called synchronously, so completion is always signalled *before* the wait begins:
+	 * the worst-case ordering, made deterministic. Times out rather than hanging, so a regression fails the
+	 * build in seconds instead of wedging the runner.
+	 */
+	@Test(timeout = 30000)
+	public void completionReportedBeforeTheWaitBeginsDoesNotHang() {
+		CyServiceRegistrar reg = mock(CyServiceRegistrar.class);
+		DialogTaskManager synchronousManager = mock(DialogTaskManager.class);
+		doAnswer(new Answer<Void>() {
+			public Void answer(InvocationOnMock invocation) {
+				Object[] args = invocation.getArguments();
+				TaskIterator taskIterator = (TaskIterator) args[0];
+				TaskObserver observer = (TaskObserver) args[1];
+				try {
+					while (taskIterator.hasNext()) {
+						taskIterator.next().run(mock(TaskMonitor.class));
+					}
+					if (observer != null) {
+						observer.allFinished(FinishStatus.getSucceeded());
+					}
+				} catch (Exception e) {
+					fail("the stub task run must not throw: " + e);
+				}
+				return null;
+			}
+		}).when(synchronousManager).execute(any(TaskIterator.class), any(TaskObserver.class));
+		when(reg.getService(DialogTaskManager.class)).thenReturn(synchronousManager);
+		CyServiceModule.setServiceRegistrar(reg);
+
+		AbstractCyNetworkReader readerTask = mock(AbstractCyNetworkReader.class);
+		CyNetwork cyNetwork = mock(CyNetwork.class);
+		when(readerTask.getNetworks()).thenReturn(new CyNetwork[] { cyNetwork });
+		InputStream inputStream = mock(InputStream.class);
+		when(networkReaderManager.getReader(any(InputStream.class), anyObject())).thenReturn(readerTask);
+
+		NdexNetworkResourceImpl impl = new NdexNetworkResourceImpl(client, appManager, networkManager,
+				ciServiceManager, networkReaderManager);
+
+		assertNotNull(impl.createNetworkFromCx(inputStream).data);
 	}
 
 	@Test

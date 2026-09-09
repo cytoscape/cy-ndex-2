@@ -57,6 +57,8 @@ import org.ndexbio.rest.client.NdexRestClientModelAccessLayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.cytoscape.cyndex2.internal.util.NdexClients;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
@@ -455,11 +457,17 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 		}
 	}
 
+	/** How long to wait for a task to finish before giving up rather than holding the request thread. */
+	private static final long TASK_TIMEOUT_MINUTES = 5;
+
 	private void execute(TaskIterator iter) {
 		DialogTaskManager tm = CyServiceModule.getService(DialogTaskManager.class);
-//		SynchronousTaskManager<?> tm = CyServiceModule.getService(SynchronousTaskManager.class);
 
-		Object lock = new Object();
+		// A latch, not wait()/notify(): the task manager runs the iterator on its own thread, so it can
+		// finish before this thread gets as far as waiting. A notify() delivered to nobody is simply lost
+		// and the wait would then never return -- the request thread hangs for good. A latch that has
+		// already counted down lets await() return immediately, so the ordering stops mattering.
+		final CountDownLatch finished = new CountDownLatch(1);
 		Runnable runner = new Runnable() {
 			@Override
 			public void run() {
@@ -472,9 +480,7 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
 					@Override
 					public void allFinished(FinishStatus finishStatus) {
-						synchronized (lock) {
-							lock.notify();
-						}
+						finished.countDown();
 					}
 				});
 			}
@@ -482,9 +488,13 @@ public class NdexNetworkResourceImpl implements NdexNetworkResource {
 
 		try {
 			SwingUtilities.invokeAndWait(runner);
-			synchronized (lock) {
-				lock.wait();
+			// Bounded: a task that never reports back must not pin this thread for the life of the process.
+			if (!finished.await(TASK_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
+				logger.warn("Task did not report completion within " + TASK_TIMEOUT_MINUTES + " minutes");
 			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			logger.warn("Interrupted while waiting for task to finish", e);
 		} catch (Exception e) {
 			logger.warn("invokeAndWait failed", e);
 		}
